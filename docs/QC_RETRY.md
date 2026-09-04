@@ -1,56 +1,77 @@
-# QC & Retry
+# QC & Retry — Runtime 1.0.0-rc.1 parity
 
-## A QC
+## 1. A QC
 
-顺序：
+产品真值先于创意质量。检查顺序包括：identity、geometry/count、topology、surface state、package/vessel、plating/physical relations，再看 hero、材质揭示、背景、灯光、景深和 commercial finish。
 
-1. product identity
-2. geometry
-3. visible count
-4. ingredient/component topology
-5. surface state
-6. package/vessel
-7. plating/physical relations
-8. product hero
-9. material reveal
-10. background relevance
-11. lighting
-12. composition/depth
-13. commercial finish
+A 未 PASS，不得进入 B。
 
-产品真值属于 hard gate，不能被创意分数抵消。
+## 2. PRODUCTION_FAST Hard Gate
 
-## B Golden Vector
+Production Fast 的目标是判断“是否可交付”，而不是为追求更高 Golden 分无限重生图。
 
-0-10 分：
+会阻止交付并允许一次 targeted creative retry 的失败：
 
 ```text
-product_hero_strength
-headline_aggression
-typography_product_symbiosis
-one_big_idea_clarity
-compositional_depth_tension
-category_inevitability
-information_density_control
-commercial_finish
+PRODUCT_IDENTITY_DRIFT
+COPY_TRUTH_FAILURE
+MECHANICAL_FAILURE
+REFERENCE_BINDING_FAILURE
+HERO_WEAK
+SCENE_DOMINATES_PRODUCT
+COMMERCIAL_FINISH_WEAK
 ```
 
-当前门槛：
+以下软审美问题单独出现时不触发线上重生图：
 
 ```text
-product_hero_strength >= 9.0
-headline_aggression >= 8.8
-typography_product_symbiosis >= 8.5
-one_big_idea_clarity >= 8.3
-compositional_depth_tension >= 8.8
-category_inevitability >= 8.5
-information_density_control >= 7.8
-commercial_finish >= 9.0
+PHOTO_PLUS_TEXT
+CATEGORY_CLICHE_DEPENDENCE
+GENERIC_PREMIUM_SKIN
+GOLDEN_DISTANCE
+other non-breaking style shortfalls
 ```
 
-## First Read
+Evaluator confidence `< 0.65`：
 
-默认目标：
+```text
+NEEDS_SECOND_EVALUATION
+failureClass = EVALUATOR
+retryEligible = false
+```
+
+只重评，不重生图。
+
+## 3. PRODUCTION_FAST Retry Budget
+
+```text
+initial B renders = 1
+max creative retry = 1
+provider/evaluator/runtime retry cost = 0 creative retries
+```
+
+Retry 必须从同一个 current-job Stage A PASS 开始，使用明确的 repair instruction，并冻结通过维度。
+
+## 4. VALIDATION Golden Vector
+
+0–10 当前门槛与 Python Runtime 一致：
+
+```text
+product_hero_strength        >= 9.2
+headline_aggression          >= 8.8
+typography_product_symbiosis >= 8.8
+one_big_idea_clarity         >= 9.0
+compositional_depth_tension  >= 8.8
+category_inevitability       >= 9.0
+information_density_control  >= 8.8
+commercial_finish            >= 9.2
+```
+
+产品真值、文案真值、机械有效性、Reference Binding 仍是比分数更高的 hard gate。
+
+## 5. First Read
+
+目标：
 
 ```text
 1 PRODUCT
@@ -58,13 +79,24 @@ commercial_finish >= 9.0
 3 BIG IDEA / SECONDARY MESSAGE
 ```
 
-如果第一眼是场景/洞穴/建筑/木牌：`SCENE_DOMINATES_PRODUCT`。
+场景成为第一眼 → `SCENE_DOMINATES_PRODUCT`。
+产品明显失去第一主角地位 → `HERO_WEAK`。
 
-如果第一眼只有大标题、产品弱：`HEADLINE_DOMINATES_PRODUCT`。
+## 6. Validation Pairwise
 
-## Anti-Pattern
+Pairwise 接收且只接收：
 
-必须检查：
+```text
+image 1 = Stage A PASS control
+image 2 = Primary
+image 3 = Challenger
+```
+
+Primary 胜 Challenger 不代表自动 PASS；Validation 仍需独立 Candidate Evaluation / Golden-relative quality 判断。
+
+## 7. Anti-Pattern
+
+Validation 重点检查：
 
 ```text
 SAFE_EDITORIAL_COLLAPSE
@@ -77,107 +109,6 @@ INFORMATION_STARVATION
 INFORMATION_OVERLOAD
 ```
 
-### SAFE_EDITORIAL_COLLAPSE
+## 8. Pass Freeze
 
-典型表现：
-
-- 巨大留白
-- 小而“高级”的字
-- 漂亮商拍
-- 低信息密度
-- 缺乏标题压强 / Big Idea / 空间 tension
-
-这种图可能“漂亮”，但不属于默认 PP Food Upper-Bound。
-
-### PHOTO_PLUS_TEXT
-
-如果产品图和文字可以轻易拆开，字体只是贴在空白区：FAIL/RETRY。
-
-### SCENE_DOMINANCE
-
-如果去掉产品后，场景本身比产品更像主视觉：FAIL/RETRY。
-
-## Score Calibration
-
-```text
-0-3 severely broken
-4-5 weak
-6 functional
-7 good commercial baseline
-8 strong
-9 Golden-range
-10 exceptional / North-Star-range
-```
-
-Evaluator 不允许动不动给 9.5。
-
-每个重要分数必须写：
-
-- what is visible
-- where it is visible
-- why it helps/hurts
-
-## Pairwise Rule
-
-Primary > Challenger 不等于 Primary PASS。
-
-如果两个都低于门槛：
-
-```text
-NO_QUALIFIED_WINNER
-```
-
-## Retry Mapping
-
-```text
-PRODUCT_IDENTITY_DRIFT -> FIDELITY_RETRY
-PRODUCT_NOT_FIRST_HERO -> HERO_RETRY
-HEADLINE_TOO_WEAK -> HEADLINE_PRESSURE_RETRY
-TYPOGRAPHY_DISCONNECTED -> TYPOGRAPHY_SYMBIOSIS_RETRY
-BIG_IDEA_WEAK -> BIG_IDEA_RETRY
-COMPOSITION_FLAT -> COMPOSITION_RETRY
-CATEGORY_GENERIC -> CATEGORY_TRANSLATION_RETRY
-INFORMATION_STARVED -> INFORMATION_RETRY
-INFORMATION_OVERLOAD -> INFORMATION_RETRY
-COMMERCIAL_FINISH_WEAK -> COMMERCIAL_FINISH_RETRY
-GOLDEN_DISTANCE_TOO_HIGH -> GOLDEN_DISTANCE_RETRY
-```
-
-## Pass Freeze
-
-已经通过的维度必须冻结。
-
-例：
-
-```json
-{
-  "productTruth": true,
-  "productHero": true,
-  "headline": false,
-  "typographySymbiosis": false,
-  "bigIdea": true,
-  "composition": true,
-  "information": true,
-  "commercialFinish": true
-}
-```
-
-Retry 只修 false 及其必要依赖。
-
-## Retry Levels
-
-```text
-1 targeted repair
-2 concept adjustment
-3 art-direction rebuild
-```
-
-B 最大 creative cycles = 3。
-
-超过后：
-
-```text
-NEEDS_HUMAN_REVIEW
-```
-
-不要无限烧图碰运气。
+所有 Retry 都必须冻结已经通过的产品真值和视觉维度，只改失败项及其必要依赖。禁止无目标“再生成一张试试”。

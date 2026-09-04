@@ -1,156 +1,95 @@
-# Node Integration Guide
+# Node Integration Guide — handoff-1.0.0-rc.1
 
-## 1. 推荐模块边界
+Runtime source: `PP-Food-Runtime-001 1.0.0-rc.1 @ 339bca03b864f531a59bd6f0105ef4ddccb94684`.
+
+## 1. 模块边界
 
 ```text
 src/
-  ppFoodPrompts.ts   # 唯一 Prompt 真源
-  types.ts           # 数据结构
-  pipeline.ts        # 固定状态机
-  index.ts           # export
+  ppFoodPrompts.ts   # Prompt/role contract
+  types.ts           # Runtime types
+  pipeline.ts        # Deterministic A/B + runtime-mode policy
+  index.ts           # exports
 ```
 
-业务 Controller 不应直接拼 Prompt。
+业务 Controller 不应直接拼另一套 Prompt。
 
-## 2. 推荐业务接口
+## 2. 创建 Pipeline
+
+线上小程序 B 默认使用：
 
 ```ts
-analyzeSourceImage(input)
-runStageA(input)
-evaluateStageA(input)
-runStageB(input)
-evaluateStageB(input)
+const ppFood = new PPFoodPipeline(vision, text, image, {
+  runtimeMode: "PRODUCTION_FAST",
+  productionMaxCreativeRetries: 1,
+  validationMaxCreativeCycles: 3
+});
 ```
 
-如果项目已有 Service/Controller 分层，把 PP Food 放进 Service 层即可。
-
-## 3. 建议 Job 数据
+质量研发时显式改为：
 
 ```ts
-{
-  jobId,
-  mode,
-  sourceImageUrl,
-  sourceImageSha256,
-  stageAPassImageUrl,
-  stageAPassSha256,
-  productTruth,
-  userFacts,
-  copyAllowlist,
-  categoryTranslation,
-  primaryDirection,
-  challengerDirection,
-  compiledPrompts,
-  providerProfile,
-  outputs,
-  evaluations,
-  retries,
-  finalDecision
-}
+{ runtimeMode: "VALIDATION" }
 ```
 
-## 4. A 调用链
+## 3. Stage A
 
 ```ts
-const vision = await visionModel({
-  system: VISION_OBSERVER_SYSTEM,
-  images: [sourceImage],
-  responseFormat: "json"
-});
-
-const direction = await llm({
-  system: STAGE_A_DIRECTOR_SYSTEM,
-  input: { productTruth: vision }
-});
-
-const prompt = compileStageAPrompt({
-  productTruth: vision,
-  artDirection: direction
-});
-
-const candidate = await imageProvider.edit({
-  image: sourceImage,
-  prompt,
-  aspectRatio: "9:16"
-});
-
-const qc = await visionModel({
-  system: STAGE_A_QC_SYSTEM,
-  images: [sourceImage, candidate],
-  input: { productTruth: vision }
-});
+const a = await ppFood.runStageA(job);
 ```
 
-A QC `PASS` 后，保存 candidate 作为当前 Job 的 `stageAPassImage`。
+A 从 source 做 reference edit；独立 A QC PASS 后，保存其输出与 hash，作为当前 Job 的 `stageAPassImage`。
 
-## 5. B 调用链
+B 不允许用另一 Job 的 A，也不允许绕过 A。
+
+## 4. Stage B — PRODUCTION_FAST
 
 ```ts
-assert(stageAPassImage);
-
-const copy = await llm({
-  system: COPY_FIREWALL_SYSTEM,
-  input: userFacts
-});
-
-const translation = await llm({
-  system: CATEGORY_TRANSLATOR_SYSTEM,
-  input: { productTruth, userFacts, copy }
-});
-
-const primary = await llm({
-  system: B_ART_DIRECTOR_SYSTEM,
-  input: { productTruth, translation, copy, variant: "PRIMARY" }
-});
-
-const challenger = await llm({
-  system: B_ART_DIRECTOR_SYSTEM,
-  input: {
-    productTruth,
-    translation,
-    copy,
-    variant: "CHALLENGER",
-    diversityRequirement:
-      "must differ from Primary in at least two structural dimensions"
-  }
-});
-
-const promptA = compileStageBPrompt({ ...job, direction: primary });
-const promptB = compileStageBPrompt({ ...job, direction: challenger });
-
-const [imgA, imgB] = await Promise.all([
-  imageProvider.edit({ image: stageAPassImage, prompt: promptA, aspectRatio: "9:16" }),
-  imageProvider.edit({ image: stageAPassImage, prompt: promptB, aspectRatio: "9:16" })
-]);
-
-const evaluation = await visionModel({
-  system: B_EVALUATOR_SYSTEM,
-  images: [sourceImage, stageAPassImage, imgA, imgB],
-  input: { productTruth, translation, copy }
-});
+const b = await ppFood.runStageB({
+  ...job,
+  mode: "B",
+  stageAPassImage
+}, productTruth);
 ```
 
-## 6. 不能把 B 直接写成一次调用
-
-不要：
+Fast Path 行为固定：
 
 ```text
-source image + 所有规则 + 用户文案 -> image model
+Primary Direction
+→ Primary image.edit(stageAPassImage)
+→ PRODUCTION_EVALUATOR_SYSTEM
+→ decideProductionGate()
+→ PASS
 ```
 
-原因：
+正常 PASS 只有一次 B image edit。Hard Gate 失败且 `retryEligible=true` 时，最多再进行一次 targeted repair。
 
-- Product Truth 不稳定
-- Category 路由不可控
-- 生成器会自我合理化
-- Retry 无法定位
-- Host/Agent 换了就会漂
+低置信度评审只重评，不重生图。Provider/Runtime 故障也不得转换为创意重试。
 
-## 7. Provider 适配
+## 5. Stage B — VALIDATION
 
-图片模型必须支持参考图。
+Validation 会生成 Primary 与 Challenger，并分别看图评价，然后执行：
 
-Provider Adapter 至少暴露：
+```ts
+vision.analyze({
+  system: PAIRWISE_EVALUATOR_SYSTEM,
+  images: [stageAPassImage, primaryImage, challengerImage]
+});
+```
+
+图位不能改变：
+
+```text
+1 = Stage A control
+2 = Primary
+3 = Challenger
+```
+
+Pairwise winner 只能是 `primary | challenger`。无效 winner id 必须按 `EVALUATOR_FAILURE` 失败关闭。
+
+## 6. Provider Adapter
+
+Image Provider 必须是真正 reference edit：
 
 ```ts
 interface ImageProvider {
@@ -158,83 +97,52 @@ interface ImageProvider {
     image: Buffer | string;
     prompt: string;
     aspectRatio: "9:16";
-  }): Promise<ImageResult>;
+  }): Promise<ImageProviderResult>;
 }
 ```
 
-Vision/QC：
+B 的 `image` 参数必须是 current-job Stage A PASS。不得静默 text-to-image fallback。
 
-```ts
-interface VisionProvider {
-  analyze(input: {
-    system: string;
-    images: Array<Buffer | string>;
-    input?: unknown;
-  }): Promise<unknown>;
-}
-```
+## 7. Artifact / Logging
 
-## 8. Reference Binding
-
-每次图片生成前记录：
-
-- reference sha256
-- job id
-- prompt sha256
-- provider/model
-
-如果 provider 实际请求未携带 current-job reference：
+线上实现至少持久化：
 
 ```text
-PROVIDER_FAILURE
+jobId
+handoffVersion
+runtimeSourceVersion
+runtimeSourceCommit
+runtimeMode
+sourceSha256
+stageASha256
+promptSha256
+provider/model/requestId
+generationLatency
+productionGate/evaluation
+failureClass
+creativeRetryCount
+finalDecision
+outputSha256
 ```
 
-不要把这种错误当成 Prompt 创意问题重试。
+不要记录 API Key、Authorization header 或包含凭据的原始请求。
 
-## 9. 中文文字
+## 8. 文案与文本渲染
 
-建议实现：
+Copy Firewall 的 allowlist 是文字事实边界。`defaultCopyAuthorized=true` 只允许非事实型 campaign copy。
 
-```ts
-type TextMode = "IMAGE_NATIVE" | "HYBRID_COMPOSITE";
-```
+`IMAGE_NATIVE` 必须检查实际可见文案准确性。`HYBRID_COMPOSITE` 可以由业务后端另行实现精确排字，但不得绕过 allowlist。
 
-### IMAGE_NATIVE
+## 9. 接入验收
 
-图片模型直接生成文字。
+开发公司在自己的后端接入后至少跑：
 
-QC 必须检查 100% 文案准确。
+- Production Fast：正常 PASS = 1 次初始 B 生图，0 Pairwise。
+- Production Fast：硬失败 = 最多 1 次创意 Retry。
+- Production Fast：软审美问题 = 不自动重生图。
+- Production Fast：低 evaluator confidence = 重评，不重生图。
+- Validation：2 个候选 + 独立评审 + 三图 Pairwise。
+- B reference hash = 当前 Job A PASS hash。
+- 所有可见硬事实来自 allowlist。
 
-### HYBRID_COMPOSITE
-
-图片模型设计整体 KV 与文字空间；Node 侧用 Canvas/Sharp/SVG 等后处理准确中文。
-
-正式商业上线建议保留 Hybrid 兜底。
-
-## 10. Artifact / Logging
-
-保存：
-
-- runtime version
-- prompt version
-- prompt hash
-- provider/model id
-- source/A/B image hash
-- evaluator JSON
-- retry code
-
-不要保存：
-
-- API Key
-- Authorization header
-- 完整敏感 provider response
-
-## 11. 版本控制
-
-Prompt 规则修改必须：
-
-- 修改 `VERSION`
-- 保留 Git diff
-- 重新跑跨品类验证
-
-不要让开发人员在业务代码里单独改一份 Prompt，造成运行逻辑与仓库不一致。
+仓库本身必须通过 `npm test` 和 `npm run typecheck`。

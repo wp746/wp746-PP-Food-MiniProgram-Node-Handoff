@@ -1,220 +1,137 @@
 # HANDOFF — 小程序开发公司交接说明
 
-## 1. 你们接手的是什么
+## 1. 版本绑定
 
-这是 PP Food 的 Node/TypeScript Prompt Runtime 交接基线。
+本交接版本必须与下列 Python Runtime 行为一致：
 
-它不是一个“把一大段 Prompt 塞给模型”的方案，而是一条固定生产链。
+```text
+Node Handoff:   handoff-1.0.0-rc.1
+Runtime:        1.0.0-rc.1
+Runtime Commit: 339bca03b864f531a59bd6f0105ef4ddccb94684
+```
 
-目标：
+开发公司不要从旧 Skill、旧对话或旧 Prompt 重新推导业务逻辑。本仓库 `src/` 与上述 Runtime commit 是交付真源。
 
-- 用户上传食品/商品图片
-- 选择 A 或 B
-- 后端稳定产出：
-  - A：高保真商业商拍
-  - B：高张力商业 KV
+## 2. 用户工作流
 
-## 2. 不要改的核心行为
+用户只需要上传一张图并选择：
 
-以下行为属于产品方法论，不是实现建议：
+- `A`：高保真商业商拍，不加 KV 文字。
+- `B`：先获得当前 Job 的 Stage A PASS，再生成商业 KV。
 
-1. 当前 source image 是产品视觉真值。
-2. A 只做商拍，不做 KV、不加字。
-3. B 必须基于当前 Job 的 A PASS 图。
-4. B 锁 Product DNA，但不锁死 A 相机。
+B 文案必须经过 Copy Firewall；默认文案授权只允许软性、非事实型 campaign copy。
+
+## 3. 两个内部执行策略
+
+### PRODUCTION_FAST
+
+这是小程序线上默认策略。
+
+```text
+B Request
+→ Require current Stage A PASS
+→ Copy Firewall
+→ Category Translation
+→ Primary Direction
+→ Primary Render
+→ Production Hard Gate
+→ PASS
+```
+
+如果 Production Hard Gate 检出交付级硬失败，可定向重试一次。**最多一次。** 正常 PASS 不生成 Challenger、不运行 Pairwise。
+
+### VALIDATION
+
+用于质量研发、Golden 校准、回归分析：
+
+```text
+B Request
+→ Require current Stage A PASS
+→ Primary + Challenger
+→ Independent Eval x2
+→ Pairwise: Stage A control + Primary + Challenger
+→ Qualified winner / review
+```
+
+Pairwise 不得混入 Source 或 Golden 图作为候选。
+
+## 4. 生产 Hard Gate
+
+创意 Retry 只针对：
+
+- `PRODUCT_IDENTITY_DRIFT`
+- `COPY_TRUTH_FAILURE`
+- `MECHANICAL_FAILURE`
+- `REFERENCE_BINDING_FAILURE`
+- `HERO_WEAK`
+- `SCENE_DOMINATES_PRODUCT`
+- `COMMERCIAL_FINISH_WEAK`
+
+软审美短板（如 `PHOTO_PLUS_TEXT`、`CATEGORY_CLICHE_DEPENDENCE`、`GENERIC_PREMIUM_SKIN`、`GOLDEN_DISTANCE`）不能单独触发线上重复生图。
+
+Evaluator confidence `<0.65` → `NEEDS_SECOND_EVALUATION`，只重评，不重新生成图片。
+
+## 5. 不得静默改变的产品方法
+
+1. 当前 source image 是产品视觉真值最高权限。
+2. A 只升级摄影，不改产品，不加海报文案。
+3. B 必须从当前 Job 的 A PASS 图继续。
+4. B 锁 Product DNA，不锁死 A 相机机位。
 5. Product Hero #1，Headline Hero #2。
-6. Category 只提供约束和语境，不直接套固定视觉模板。
-7. 当前产品感官语义是视觉语言的第一来源。
-8. 字体材质必须能追溯到当前产品，而不是品类标签。
-9. B 默认允许中高信息密度，不默认极简。
-10. 生成模型不得自己宣布自己“世界级”。QC 必须独立。
-11. 两个候选里较好的一张，不代表它已经合格；都低于门槛时返回 `NO_QUALIFIED_WINNER`。
-12. Retry 必须按失败码定向修复，不允许随机整图重做。
+6. Category 是上下文与约束，不是统一模板。
+7. 产品感官语义是视觉语言第一来源。
+8. Golden 迁移原则，不迁移皮肤。
+9. QC 必须独立看实际像素。
+10. Provider/Evaluator/Runtime 故障不是创意失败，不消耗创意 Retry。
+11. Retry 必须定向修复且 Pass-Freeze。
+12. 不允许为了“更高级”而牺牲产品真实性。
 
-## 3. 推荐后端状态机
+## 6. Image Provider
 
-### A
+Image Provider 必须执行 reference image / image edit，并真正携带当前 Job 的参考图。对 B 来说参考图是当前 Stage A PASS。
 
-```text
-A_REQUEST
--> VISION_ANALYSIS
--> PRODUCT_TRUTH_READY
--> A_DIRECTION_READY
--> A_PROMPT_READY
--> A_RENDER
--> A_QC
--> A_PASS | A_RETRY | FAIL
-```
+至少记录：
 
-### B
-
-```text
-B_REQUEST
--> REQUIRE_CURRENT_A_PASS
--> COPY_FIREWALL
--> CATEGORY_TRANSLATION
--> PRIMARY_DIRECTION
--> CHALLENGER_DIRECTION
--> PRIMARY_RENDER
--> CHALLENGER_RENDER
--> INDEPENDENT_EVAL
--> QUALIFIED_WINNER?
-     NO -> TARGETED_RETRY
-     YES -> FINAL_QC
--> B_PASS
-```
-
-## 4. 接口建议
-
-开发公司可以保留现有 Node 项目结构，只需把 Prompt Runtime 抽成服务层：
-
-```ts
-analyzeSourceImage()
-runStageA()
-evaluateStageA()
-buildCopyAllowlist()
-translateCategoryVisualLanguage()
-buildPrimaryDirection()
-buildChallengerDirection()
-compileStageBPrompt()
-renderStageB()
-evaluateStageB()
-planTargetedRetry()
-```
-
-## 5. Image Provider 约束
-
-图片模型必须支持 reference image / image editing。
-
-对每次生成保存：
-
-- 当前 job id
+- job id
 - source hash
-- A PASS hash
+- Stage A hash
 - prompt hash
-- provider / model id
-- output image
-- QC result
+- runtime/handoff version
+- provider/model/request id
+- generation latency
+- QC / failure class
+- retry count
+- final decision
 
-不能静默退化成纯 text-to-image。
+Reference 未实际绑定时应失败关闭，不允许静默改成纯 text-to-image。
 
-## 6. 文本生成模式
+## 7. 中文文字
 
-提供两种模式：
+保留两种策略：
 
-### `IMAGE_NATIVE`
-图片模型直接渲染中文。
+- `IMAGE_NATIVE`：模型直接渲染；必须 QC 精确文案。
+- `HYBRID_COMPOSITE`：图像模型负责视觉世界、结构与文字承载空间，后端负责最终准确中文/品牌/价格/地址/二维码等已授权文字。
 
-优点：空间融合更自然。
+本 RC 同步的是 Runtime 策略与 Prompt 契约；如果开发公司实现 Hybrid 合成层，必须单独记录实现与验收结果，不能声称仓库当前已经实现了完整合成器。
 
-风险：中文可能错字。
+## 8. 安全
 
-### `HYBRID_COMPOSITE`
-图片模型负责：
+API Key 只能存在后端 Secret/环境变量。禁止提交 `.env`、真实 Key、私有 S01/S02、客户 Job 原图或生成物。
 
-- 产品
-- 场景
-- 文字承载结构
-- 标题空间规划
-- 材质/光影提示
+任何已经出现在聊天、文件或代码历史中的旧 Key 都应视为泄露，不得复用。
 
-Node/Canvas/Sharp 后处理负责最终准确中文、品牌、价格、地址、二维码。
+## 9. 开发公司必须返回
 
-正式商业上线更推荐保留 Hybrid 作为兜底。
+初次接入后至少返回：
 
-## 7. Prompt 文件怎么用
-
-不要把 `docs/PROMPT_RUNTIME_FULL.md` 整段作为一个 system prompt。
-
-请使用 `src/ppFoodPrompts.ts` 中对应模块：
-
-- `GLOBAL_ORCHESTRATOR_SYSTEM`
-- `VISION_OBSERVER_SYSTEM`
-- `STAGE_A_DIRECTOR_SYSTEM`
-- `COPY_FIREWALL_SYSTEM`
-- `CATEGORY_TRANSLATOR_SYSTEM`
-- `B_ART_DIRECTOR_SYSTEM`
-- `B_EVALUATOR_SYSTEM`
-- `RETRY_PLANNER_SYSTEM`
-- `compileStageAPrompt()`
-- `compileStageBPrompt()`
-
-## 8. 当前验证状态
-
-当前已明确达到预期方向的视觉母版包括：
-
-- S01 椰椰西瓜冰：感官 -> 材质 -> 空间字体世界
-- S02 桔子罐头：包装 Hero + 中高信息密度 + 成熟零售广告完成度
-
-其他品类仍需继续做泛化稳定性验证，因此：
-
-```text
-HANDOFF STATUS = VALIDATED_BASELINE
-PRODUCTION FREEZE = NOT YET
-```
-
-开发时不要擅自把此版本标记为最终冻结版。
-
-## 9. 事实安全
-
-永远禁止自行编造：
-
-- 价格
-- 地址
-- 电话
-- 认证
-- 奖项
-- 产地
-- 品牌历史
-- 配方/成分
-- 健康功效
-- 销量
-- 折扣
-- 净含量
-- 门店数
-
-测试板式需要假数据时，后端必须标记：
-
-```text
-LAYOUT_TEST_MODE=true
-```
-
-并且禁止把测试假数据写回正式产品事实。
-
-## 10. 验收时重点看什么
-
-A：
-
-- 产品是否还是原产品
-- 表面/数量/结构是否漂移
-- 背景是否高级但不抢产品
-- 灯光是否真正提升材质
-- 是否仍是商拍而不是海报
-
-B：
-
-- 产品是否第一眼
-- 标题是否第二眼
-- 标题有没有视觉质量和空间存在感
-- 字体材质是否来自产品属性
-- 是否有一个明确 Big Idea
-- 是否有多层空间
-- 是否有品类必然性
-- 信息是否丰富但不乱
-- 是否像成熟 Campaign，而不是 AI 海报草稿
-
-## 11. 需要开发公司返回给甲方的内容
-
-完成初次接入后，请提供：
-
-1. Node 接入文件路径
-2. 实际使用的 Vision / Image / QC 模型名
-3. A 请求与响应样例
-4. B 请求与响应样例
-5. 一次完整 Job 的日志（脱敏）
-6. Prompt hash
-7. A/B 生成图
+1. 实际部署 commit/version
+2. Vision / QC / Image provider 与模型名
+3. A/B 请求响应样例
+4. 脱敏完整 Job 日志
+5. Source / Stage A / Prompt / Output hash
+6. A/B 最终生成图
+7. Runtime Mode
 8. 是否启用 Hybrid Composite
-9. 是否存在任何你们自行修改的 Prompt 规则
+9. 对本仓库的任何修改 diff
 
-任何对本仓库规则的修改，都必须单独列出 diff，不要静默修改。
+未经列明，不得静默修改 Prompt、QC、重试上限或图位顺序。

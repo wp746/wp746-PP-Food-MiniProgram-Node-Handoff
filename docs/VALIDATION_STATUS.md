@@ -1,78 +1,39 @@
-# Validation Status
+# Validation Status — handoff-1.0.0-rc.1
 
-## Current Status
-
-```text
-HANDOFF BASELINE: READY
-PRODUCTION FREEZE: NOT YET
-```
-
-当前已验证方向：
-
-### S01 椰椰西瓜冰
-
-确认有效的原则：
-
-- Product Hero 强
-- Headline Hero 强
-- 感官语义 -> 材质 -> 空间字体
-- 多层空间共构
-- 年轻、清凉、果感与商业信息共存
-
-### S02 桔子罐头
-
-确认有效的原则：
-
-- Package Hero 强
-- 主标题强
-- 中高信息密度但秩序清晰
-- 金黄果香/阳光/丰盛感能够形成成熟零售广告世界
-
-## 还需要继续验证的品类
-
-优先：
-
-1. 中式热菜
-2. 汤面/米线
-3. 烘焙
-4. 蛋糕/甜点
-5. 酸菜鱼/川湘热菜
-6. 煲类
-7. 西餐
-8. 炸物/快餐
-9. 中式糕点
-10. 夜市小吃
-
-## 生产冻结前建议门槛
-
-每个代表 Case 重复 3 次：
+## Version Mapping
 
 ```text
-Fidelity 3/3 PASS
-Copy 3/3 PASS
-Category 3/3 PASS
-Catastrophic Drift = 0
-Upper-Bound >= 2/3 PASS
-Worst run >= strong commercial baseline
+Node Handoff:    handoff-1.0.0-rc.1
+Runtime Version: 1.0.0-rc.1
+Runtime Commit:  339bca03b864f531a59bd6f0105ef4ddccb94684
 ```
 
-重点是提高 `QUALITY FLOOR`，而不是 Best-of-20。
+## Current Engineering Status
 
-## 开发公司现阶段应该做什么
+```text
+RUNTIME POLICY SYNC: IMPLEMENTED
+NODE MODE TESTS: REQUIRED
+NODE TYPECHECK: REQUIRED
+PRODUCTION RC FREEZE: YES
+FINAL LIVE PROVIDER / PRIVATE-ASSET ACCEPTANCE: PENDING UNLESS RUN EXPLICITLY
+```
 
-可以：
+RC Freeze 表示 Node 行为契约已经固定到指定 Runtime commit；它不等于真实 Provider、私有 Golden、所有品类已经在这个 commit 上完成最终线上验收。
 
-- 按此仓库接入现有 Node 项目
-- 做 Provider Adapter
-- 做 A/B API 路由
-- 做 Prompt Compiler
-- 做 Artifact/QC 日志
-- 做 IMAGE_NATIVE / HYBRID_COMPOSITE 两种文字模式
+## S-Tier Calibration Context
 
-不要：
+S01「椰椰西瓜冰」与 S02「阳光蜜橘罐头」仍是视觉质量 North Star；它们用于迁移质量原则，不允许把其具体皮肤、品牌、布局或素材复制到新 Job。
 
-- 自己重新发明另一套 Prompt
-- 静默删除 QC
-- B 直接跳过 A
-- 把所有模块合并为一个自由 Agent
-- 把本版本标为最终冻结版
+Runtime 还包含 Human-Accepted Street Food Canonical 的校准元数据；私有 Canonical 图片本身不应提交到本 Node 仓库。
+
+## Release Gate
+
+只有同时满足以下条件，才能对本同步分支写 `SYNC STATUS: MATCHED`：
+
+1. Node 最终 commit 上 `npm test` PASS。
+2. 同一 commit 上 `npm run typecheck` PASS。
+3. Python Runtime release commit CI PASS。
+4. 两仓版本映射、Runtime Mode、Production Retry=1、Validation Cycle<=3、confidence=0.65、Hard Failure Set、三图 Pairwise、Golden floors 一致。
+5. 两仓未提交 API Key、私有 Job 产物或私有 Golden 图。
+
+真实 Provider / 私有 S01/S02 验证如果没有执行，只能写 `NOT RUN / PENDING`，不得伪装成 PASS。
