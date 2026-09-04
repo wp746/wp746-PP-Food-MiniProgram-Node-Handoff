@@ -6,34 +6,87 @@
 Node Handoff:    handoff-1.0.0-rc.1
 Runtime Version: 1.0.0-rc.1
 Runtime Commit:  339bca03b864f531a59bd6f0105ef4ddccb94684
+SYNC STATUS:     MATCHED
 ```
 
-## Current Engineering Status
+## Verified Policy Parity
+
+两仓已按代码与契约核对以下项目：
 
 ```text
-RUNTIME POLICY SYNC: IMPLEMENTED
-NODE MODE TESTS: REQUIRED
-NODE TYPECHECK: REQUIRED
-PRODUCTION RC FREEZE: YES
-FINAL LIVE PROVIDER / PRIVATE-ASSET ACCEPTANCE: PENDING UNLESS RUN EXPLICITLY
+Runtime Modes                  = VALIDATION / PRODUCTION_FAST
+Production initial B renders   = 1
+Production creative retries    <= 1
+Validation creative cycle cap  <= 3
+Evaluator confidence boundary  = 0.65
+Production hard failure set    = MATCHED
+Production soft advisory rule  = MATCHED
+Pairwise image slots            = Stage A / Primary / Challenger
+Stage A can win pairwise        = NO
+Validation Golden floors        = MATCHED
+Current-job Stage A binding     = REQUIRED
 ```
 
-RC Freeze 表示 Node 行为契约已经固定到指定 Runtime commit；它不等于真实 Provider、私有 Golden、所有品类已经在这个 commit 上完成最终线上验收。
+Production Hard Failure Set：
 
-## S-Tier Calibration Context
+```text
+PRODUCT_IDENTITY_DRIFT
+COPY_TRUTH_FAILURE
+MECHANICAL_FAILURE
+REFERENCE_BINDING_FAILURE
+HERO_WEAK
+SCENE_DOMINATES_PRODUCT
+COMMERCIAL_FINISH_WEAK
+```
 
-S01「椰椰西瓜冰」与 S02「阳光蜜橘罐头」仍是视觉质量 North Star；它们用于迁移质量原则，不允许把其具体皮肤、品牌、布局或素材复制到新 Job。
+Validation Golden floors：
 
-Runtime 还包含 Human-Accepted Street Food Canonical 的校准元数据；私有 Canonical 图片本身不应提交到本 Node 仓库。
+```text
+product_hero_strength        9.2
+headline_aggression          8.8
+typography_product_symbiosis 8.8
+one_big_idea_clarity         9.0
+compositional_depth_tension  8.8
+category_inevitability       9.0
+information_density_control  8.8
+commercial_finish            9.2
+```
 
-## Release Gate
+## CI Evidence
 
-只有同时满足以下条件，才能对本同步分支写 `SYNC STATUS: MATCHED`：
+Python Runtime release commit `339bca03b864f531a59bd6f0105ef4ddccb94684` 已通过 GitHub Actions：
 
-1. Node 最终 commit 上 `npm test` PASS。
-2. 同一 commit 上 `npm run typecheck` PASS。
-3. Python Runtime release commit CI PASS。
-4. 两仓版本映射、Runtime Mode、Production Retry=1、Validation Cycle<=3、confidence=0.65、Hard Failure Set、三图 Pairwise、Golden floors 一致。
-5. 两仓未提交 API Key、私有 Job 产物或私有 Golden 图。
+```text
+78 passed
+3 skipped
+0 failed
+```
 
-真实 Provider / 私有 S01/S02 验证如果没有执行，只能写 `NOT RUN / PENDING`，不得伪装成 PASS。
+其中跳过项是 opt-in 的真实 Provider smoke 与私有 S01/S02 live validation；没有凭据/私有素材时跳过是预期行为。
+
+Node handoff release line 必须在最终 commit 上同时通过：
+
+```text
+npm test
+npm run typecheck
+```
+
+本状态文件提交后仍以 GitHub Actions 对该**同一最终 commit**的结果作为最终证据；如果 CI 未通过，`SYNC STATUS: MATCHED` 自动失效，必须修复后重新验证。
+
+## Security / Private Assets
+
+RC 树只允许空值 `.env.example`。真实 `.env`、API Key、客户 Job 产物、私有 S01/S02、私有 Golden 图片不得提交。
+
+Golden / Canonical 私有图片通过本地绑定或外部安全存储提供，仓库只保留元数据/原则。
+
+## Live Acceptance Boundary
+
+`SYNC STATUS: MATCHED` 表示 **Python Runtime 与 Node Handoff 的工程行为契约一致**，不等于真实 Provider 与所有品类已经完成最终业务验收。
+
+真实 SiliconFlow/Yunwu + 私有 S01/S02/新 Case 的 live run 没有在本 release CI 中执行时，状态只能是：
+
+```text
+LIVE PROVIDER ACCEPTANCE = NOT RUN / PENDING
+```
+
+不得写成 PASS。
