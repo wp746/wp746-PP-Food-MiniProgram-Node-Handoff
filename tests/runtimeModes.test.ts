@@ -90,7 +90,7 @@ function harness(productionEval: Record<string, unknown> = {}) {
   };
 
   const visionCalls: Array<{ system: string; images: Array<Buffer | string> }> = [];
-  const vision = {
+  const vision: any = {
     async analyze({ system, images }: any) {
       visionCalls.push({ system, images });
       if (system.includes("Pairwise")) {
