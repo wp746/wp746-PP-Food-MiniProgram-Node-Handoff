@@ -1,8 +1,8 @@
+.env
+.env.*
+!.env.example
 node_modules/
 dist/
-.env
-*.log
-.DS_Store
 coverage/
-artifacts/
-validation_runs/
+.DS_Store
+*.log
