@@ -1,4 +1,5 @@
 export type PPFoodMode = "A" | "B";
+export type RuntimeMode = "VALIDATION" | "PRODUCTION_FAST";
 export type TextMode = "IMAGE_NATIVE" | "HYBRID_COMPOSITE";
 
 export type FactSource = "OBSERVED_FACT" | "USER_VERIFIED_FACT" | "HIGH_CONFIDENCE_INFERENCE" | "UNKNOWN";
@@ -85,14 +86,58 @@ export interface GoldenVector {
   commercialFinish: number;
 }
 
-export type EvaluationDecision = "PASS" | "RETRY" | "NO_QUALIFIED_WINNER" | "NEEDS_HUMAN_REVIEW" | "PROVIDER_FAILURE";
+export type EvaluationDecision =
+  | "PASS"
+  | "RETRY"
+  | "NO_QUALIFIED_WINNER"
+  | "NEEDS_HUMAN_REVIEW"
+  | "NEEDS_SECOND_EVALUATION"
+  | "EVALUATOR_FAILURE"
+  | "PROVIDER_FAILURE";
+
+export interface EvaluationFailure {
+  code: string;
+  severity: "CRITICAL" | "MAJOR" | "MINOR";
+  evidence: string[];
+}
 
 export interface EvaluationResult {
   decision: EvaluationDecision;
-  failures: Array<{ code: string; severity: "CRITICAL" | "MAJOR" | "MINOR"; evidence: string[] }>;
+  failures: EvaluationFailure[];
   firstRead?: [string?, string?, string?];
   goldenVector?: GoldenVector;
   passFreeze?: Record<string, boolean>;
+  mechanicalPass?: boolean;
+  referenceBindingVerified?: boolean;
+  productTruthPass?: boolean;
+  copyTruthPass?: boolean;
+  productFirstHero?: boolean;
+  confidence?: number;
+}
+
+export interface PairwiseResult {
+  winnerId: "primary" | "challenger";
+  visuallyDistinct: boolean;
+  winnerReason?: string;
+  evidence?: string[];
+  confidence: number;
+}
+
+export type ProductionGateDecision = "PASS" | "RETRY" | "NEEDS_SECOND_EVALUATION" | "NEEDS_HUMAN_REVIEW";
+
+export interface ProductionGateResult {
+  decision: ProductionGateDecision;
+  failureCodes: string[];
+  retryEligible: boolean;
+  failureClass: "NONE" | "DELIVERY_HARD_GATE" | "EVALUATOR";
+  evidence: string[];
+  repairInstruction: string;
+}
+
+export interface PPFoodPipelineOptions {
+  runtimeMode?: RuntimeMode;
+  productionMaxCreativeRetries?: number;
+  validationMaxCreativeCycles?: number;
 }
 
 export interface PPFoodJobInput extends UserFacts {
