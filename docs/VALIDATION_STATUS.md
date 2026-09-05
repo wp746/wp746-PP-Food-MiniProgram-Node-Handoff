@@ -1,30 +1,35 @@
-# Validation Status — handoff-1.0.0-rc.1
+# Validation Status — handoff-1.0.0-rc.2
 
 ## Version Mapping
 
 ```text
-Node Handoff:    handoff-1.0.0-rc.1
-Runtime Version: 1.0.0-rc.1
-Runtime Commit:  339bca03b864f531a59bd6f0105ef4ddccb94684
-SYNC STATUS:     MATCHED
+Node Handoff:    handoff-1.0.0-rc.2
+Runtime Version: 1.0.0-rc.2
+Runtime Commit:  0930fe08fd2188196478d658739f4e128527501d
+SYNC TARGET:     MATCHED
 ```
+
+## RC2 reason
+
+真实 S02 live acceptance 发现 Vision 返回 `pack_or_food = "Pack"`，RC1 Python 路由却按大小写敏感的 `"PACK"` 判断，导致桔子罐头没有进入 `CANNED_FRUIT_RETAIL`，也没有检索到 S02 S-tier Golden。RC2 在 Python 与 Node 两仓同步增加 Product Truth / pack signal 的确定性规范化；该修复属于路由正确性，不改变已批准的 A/B 视觉方法论。
 
 ## Verified Policy Parity
 
-两仓已按代码与契约核对以下项目：
+两仓按代码与契约对齐以下项目：
 
 ```text
-Runtime Modes                  = VALIDATION / PRODUCTION_FAST
-Production initial B renders   = 1
-Production creative retries    <= 1
-Validation creative cycle cap  <= 3
-Evaluator confidence boundary  = 0.65
-Production hard failure set    = MATCHED
-Production soft advisory rule  = MATCHED
-Pairwise image slots            = Stage A / Primary / Challenger
-Stage A can win pairwise        = NO
-Validation Golden floors        = MATCHED
-Current-job Stage A binding     = REQUIRED
+Runtime Modes                   = VALIDATION / PRODUCTION_FAST
+Production initial B renders    = 1
+Production creative retries     <= 1
+Validation creative cycle cap   <= 3
+Evaluator confidence boundary   = 0.65
+Production hard failure set     = MATCHED
+Production soft advisory rule   = MATCHED
+Pairwise image slots             = Stage A / Primary / Challenger
+Stage A can win pairwise         = NO
+Current-job Stage A binding      = REQUIRED
+Pack/food casing normalization   = REQUIRED
+Canned-fruit PACK canonical id   = CANNED_FRUIT_RETAIL
 ```
 
 Production Hard Failure Set：
@@ -39,7 +44,7 @@ SCENE_DOMINATES_PRODUCT
 COMMERCIAL_FINISH_WEAK
 ```
 
-Validation Golden floors：
+Validation Golden floors remain a Python Runtime validation concern and are unchanged from RC1:
 
 ```text
 product_hero_strength        9.2
@@ -54,39 +59,42 @@ commercial_finish            9.2
 
 ## CI Evidence
 
-Python Runtime release commit `339bca03b864f531a59bd6f0105ef4ddccb94684` 已通过 GitHub Actions：
+Python Runtime RC2 commit `0930fe08fd2188196478d658739f4e128527501d` 已通过 GitHub Actions：
 
 ```text
-78 passed
+82 passed
 3 skipped
 0 failed
 ```
 
-其中跳过项是 opt-in 的真实 Provider smoke 与私有 S01/S02 live validation；没有凭据/私有素材时跳过是预期行为。
+3 个 skipped 是 opt-in 的真实 Provider smoke 与私有 S01/S02 live tests。
 
-Node handoff release line 必须在最终 commit 上同时通过：
+Node RC2 新增 canned-fruit normalization 回归测试。TDD RED 已验证：在实现前该测试以 `normalizeProductTruth is not a function` 失败；实现后运行测试已达到 8/8 PASS。最终交付仍以本文件所在**同一最终 commit**上的以下两个 CI 步骤同时成功为准：
 
 ```text
 npm test
 npm run typecheck
 ```
 
-本状态文件提交后仍以 GitHub Actions 对该**同一最终 commit**的结果作为最终证据；如果 CI 未通过，`SYNC STATUS: MATCHED` 自动失效，必须修复后重新验证。
+如果最终 CI 未通过，则不得报告 `SYNC STATUS: MATCHED`。
+
+## Live Acceptance Evidence
+
+RC1 真实 Provider run 已证明 SiliconFlow 与 Yunwu 能完成真实请求，但：
+
+- S01 Validation：真实生成成功；因严格 Golden floors 返回 `NO_QUALIFIED_WINNER`，无产品/文案硬失败。
+- S02 Validation：运行完成，但结果受上述 RC1 category/Golden routing bug 污染，因此不能作为修复后视觉质量证据。
+- RC1 review-sheet 在找不到 `golden-S02` 时抛出 `StopIteration`，导致后续 S02 Production Fast 未执行。
+
+因此 RC2 当前 live 边界为：
+
+```text
+LIVE RC2 S02 VALIDATION       = PENDING
+LIVE RC2 S02 PRODUCTION_FAST  = PENDING
+```
+
+不需要再次烧 S01；只需要对 S02 做一次定向 RC2 live acceptance。
 
 ## Security / Private Assets
 
 RC 树只允许空值 `.env.example`。真实 `.env`、API Key、客户 Job 产物、私有 S01/S02、私有 Golden 图片不得提交。
-
-Golden / Canonical 私有图片通过本地绑定或外部安全存储提供，仓库只保留元数据/原则。
-
-## Live Acceptance Boundary
-
-`SYNC STATUS: MATCHED` 表示 **Python Runtime 与 Node Handoff 的工程行为契约一致**，不等于真实 Provider 与所有品类已经完成最终业务验收。
-
-真实 SiliconFlow/Yunwu + 私有 S01/S02/新 Case 的 live run 没有在本 release CI 中执行时，状态只能是：
-
-```text
-LIVE PROVIDER ACCEPTANCE = NOT RUN / PENDING
-```
-
-不得写成 PASS。
