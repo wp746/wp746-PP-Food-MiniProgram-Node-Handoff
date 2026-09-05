@@ -3,18 +3,18 @@
 这是交给小程序开发公司的 **Node/TypeScript Runtime 交接仓库**。
 
 ```text
-Handoff Version: handoff-1.0.0-rc.3
-Runtime Source:  PP-Food-Runtime-001 1.0.0-rc.3
-Runtime Commit:  9dd3aa4725efd008ec6382f9abbce81d146ee024
+Handoff Version: handoff-1.0.0
+Runtime Source:  PP-Food-Runtime-001 1.0.0
+Runtime Commit:  5a2d6c9757dc0f55c75128587fa0c8cd3dbe112c
 ```
 
 本仓库不是另一套 Skill，而是 Python Runtime 的生产行为镜像。开发公司应按本仓库的类型、状态机、Prompt Compiler、QC/Retry 契约实现，不得重新解释方法论。
 
-## RC3 新增：Production Evaluator 协议保护
+## V1：Production Evaluator 协议保护
 
-真实 S02 `PRODUCTION_FAST` 已经跑到 Production Evaluator，但 SiliconFlow 曾返回 `RawEvaluation` 的 JSON Schema 本身，而不是评审数据实例。RC3 将此类情况定义为 structured-output protocol failure。
+真实 S02 `PRODUCTION_FAST` 曾跑到 Production Evaluator，但 SiliconFlow 返回 `RawEvaluation` 的 JSON Schema 本身，而不是评审数据实例。V1 保留 RC3 已验证的 structured-output protocol protection。
 
-Node 交接行为必须与 Python RC3 一致：
+Node 交接行为必须与 Python Runtime 1.0.0 一致：
 
 ```text
 Production evaluator
@@ -32,7 +32,9 @@ Production evaluator
 
 `INVALID_JSON`、`SCHEMA_ECHO`、`MODEL_VALIDATION` 都属于 structured-output protocol failure。Provider adapter 应把这些错误归一为 `STRUCTURED_OUTPUT_PROTOCOL_FAILURE`，而不是当成创意失败。
 
-## RC2 仍保留：Product Truth normalization
+真实 evaluator-only acceptance 已确认：SiliconFlow 不再因 schema echo 路径直接导致 Pydantic 崩溃，而能返回正常 Production Gate 结果。该验收复用了历史 S02 候选；该旧候选本身被判 `HERO_WEAK`，这属于合法交付硬门槛，不代表 evaluator protocol 失败，也不会为了测试变绿而降低 QC。
+
+## V1：Product Truth normalization
 
 Vision Provider 输出是观察证据，不是内部 routing key。`Pack / PACK` 必须先统一为 `PACK`；当前任务为包装桔子/蜜橘/罐头时，内部类别必须进入 `CANNED_FRUIT_RETAIL`。不得删除这层确定性规范化。
 
