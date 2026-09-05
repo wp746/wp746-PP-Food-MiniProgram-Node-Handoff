@@ -1,20 +1,21 @@
-# Validation Status — handoff-1.0.0-rc.3
+# Validation Status — handoff-1.0.0
 
 ## Version Mapping
 
 ```text
-Node Handoff:    handoff-1.0.0-rc.3
-Runtime Version: 1.0.0-rc.3
-Runtime Commit:  9dd3aa4725efd008ec6382f9abbce81d146ee024
+Node Handoff:    handoff-1.0.0
+Runtime Version: 1.0.0
+Runtime Commit:  5a2d6c9757dc0f55c75128587fa0c8cd3dbe112c
 SYNC TARGET:     MATCHED
-FINAL STATUS:    requires this commit's npm test + npm run typecheck
+FINAL STATUS:    pending this final Node commit's npm test + npm run typecheck
 ```
 
-## RC3 reason
+## Production V1 reason
 
-真实 S02 `PRODUCTION_FAST` 已完成图片生成并进入 Production Evaluator，但 SiliconFlow 返回 `RawEvaluation` JSON Schema 本身而不是评审数据实例，导致 Pydantic structured-output validation failure。RC3 将 `INVALID_JSON / SCHEMA_ECHO / MODEL_VALIDATION` 归一为 `STRUCTURED_OUTPUT_PROTOCOL_FAILURE`，Production Fast 只允许一次 evaluator-only retry，使用完全相同的 Source / Stage A / Candidate，不重生图、不消耗 creative retry；第二次仍失败则 `NEEDS_HUMAN_REVIEW + EVALUATOR_PROTOCOL_FAILURE`。
+V1 promotes the RC3 behavior to production without changing the approved A/B visual methodology. The final release includes two live-discovered hardening fixes:
 
-RC3 不改变已批准的视觉方法论、Product Truth、Category Translation、Golden floors、Stage A 或 B 图像生成策略。
+1. Product Truth routing normalizes raw provider casing (`Pack -> PACK`) before category/Golden routing; canned-fruit package jobs resolve to `CANNED_FRUIT_RETAIL`.
+2. Production evaluator structured-output failures (`INVALID_JSON / SCHEMA_ECHO / MODEL_VALIDATION`) are normalized to `STRUCTURED_OUTPUT_PROTOCOL_FAILURE`; Production Fast allows one evaluator-only retry on the same Source / Stage A / Candidate, with zero image regeneration and zero creative-retry cost. A second protocol failure fails closed to human review.
 
 ## Verified Policy Parity
 
@@ -61,37 +62,36 @@ information_density_control  8.8
 commercial_finish            9.2
 ```
 
-## Python Runtime CI Evidence
+## Python Runtime V1 CI Evidence
 
-Final Python Runtime RC3 commit:
+Final Runtime production-freeze commit:
 
 ```text
-9dd3aa4725efd008ec6382f9abbce81d146ee024
+5a2d6c9757dc0f55c75128587fa0c8cd3dbe112c
 85 passed
 3 skipped
 0 failed
-workflow = SUCCESS
+workflow 33959171648 = SUCCESS
 ```
 
-3 skipped are opt-in real-provider/private live tests.
+The 3 skipped tests are opt-in real-provider/private live tests; they are not silently treated as PASS.
 
 ## Node TDD Evidence
 
-RC3 protocol tests were added before implementation. RED state: 2 protocol tests failed because `StructuredOutputProtocolError` did not exist. After adding the protocol type and evaluator-only retry implementation, the core Node commit `d80a3a24730d6aa8e806ced290ce450ba6c9954f` passed `npm test` and `npm run typecheck`.
+The evaluator protocol contract was introduced test-first during RC3. RED state: protocol tests failed before `StructuredOutputProtocolError` and evaluator-only retry existed. After implementation, RC3 passed 10/10 Node tests plus TypeScript typecheck. The final handoff-1.0.0 metadata/mapping commit must also pass both steps before delivery is marked synchronized.
 
-This release metadata commit must also pass both steps before delivery is considered synchronized.
+## Live Acceptance Closure
 
-## Live Acceptance Boundary
+Real provider evidence now proves:
 
-Real provider evidence currently proves:
+- The S02 category routing bug was diagnosed and fixed: raw `Pack` normalizes to `PACK`, and the corrected V1 route is `CANNED_FRUIT_RETAIL`.
+- Real S02 image generation reached Production Fast and exposed the evaluator schema-echo protocol failure.
+- A later self-contained evaluator-only acceptance reused an already-generated real S02 candidate and called SiliconFlow only; it performed no Yunwu regeneration.
+- Runtime 1.0.0/RC3 evaluator behavior parsed the provider response into a normal Production Gate instead of crashing on a JSON-Schema echo.
+- The reused historical candidate returned `RETRY / HERO_WEAK`. This is a visual delivery-hard-gate result, not a structured-output protocol failure. The V1 release retains this gate rather than weakening QC to manufacture PASS.
 
-- S02 category/Golden routing bug from RC1 was diagnosed and fixed in RC2.
-- Real S02 Validation on the corrected path can generate actual candidates.
-- Real S02 Production Fast reached image generation and Production Evaluator.
-- The latest live blocker was evaluator schema echo, not image generation.
-
-RC3 live evaluator acceptance remains pending. Do not repeat full image generation solely to validate this fix when the existing S02 candidate can be reused; evaluator-only acceptance is preferred.
+This evaluator-only acceptance is technical protocol evidence; it is not claimed as a fresh V1 image-quality render.
 
 ## Security / Private Assets
 
-RC tree contains no real API Key, customer job asset, private S01/S02 or Golden image. Keep credentials only in backend Secrets/env. Old keys exposed in prior chat/files must not be reused.
+The handoff tree must contain no real API Key, customer job asset, private S01/S02 or Golden image. Keep credentials only in backend Secrets/env. Old keys exposed in prior chat/files must not be reused.
