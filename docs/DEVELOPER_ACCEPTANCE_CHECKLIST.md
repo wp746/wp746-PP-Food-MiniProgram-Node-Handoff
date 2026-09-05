@@ -1,6 +1,6 @@
-# Developer Acceptance Checklist — handoff-1.0.0-rc.3
+# Developer Acceptance Checklist — handoff-1.0.0
 
-Runtime source: `PP-Food-Runtime-001 1.0.0-rc.3 @ 9dd3aa4725efd008ec6382f9abbce81d146ee024`.
+Runtime source: `PP-Food-Runtime-001 1.0.0 @ 5a2d6c9757dc0f55c75128587fa0c8cd3dbe112c`.
 
 开发公司完成接入后逐项确认。
 
@@ -40,7 +40,7 @@ Runtime source: `PP-Food-Runtime-001 1.0.0-rc.3 @ 9dd3aa4725efd008ec6382f9abbce8
 - [ ] evaluator confidence `<0.65` 只重评，不重生图
 - [ ] Provider / Evaluator / Runtime failure 消耗 0 creative retry
 
-## RC3 Evaluator Protocol
+## V1 Evaluator Protocol
 
 - [ ] Vision adapter 能识别 `INVALID_JSON`
 - [ ] Vision adapter 能识别 `SCHEMA_ECHO`
@@ -62,7 +62,7 @@ Runtime source: `PP-Food-Runtime-001 1.0.0-rc.3 @ 9dd3aa4725efd008ec6382f9abbce8
 - [ ] 两候选独立评价
 - [ ] Pairwise 只接收 Stage A control / Primary / Challenger
 - [ ] Stage A 不能成为 winner
-- [ ] Golden floors 与 Runtime RC3 一致
+- [ ] Golden floors 与 Runtime 1.0.0 一致
 - [ ] 有 First Read / Golden Vector / Anti-Pattern
 - [ ] 不合格时 review / named retry，不强行 PASS
 
