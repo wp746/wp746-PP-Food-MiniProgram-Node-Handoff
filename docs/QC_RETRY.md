@@ -1,4 +1,4 @@
-# QC & Retry — Runtime 1.0.0-rc.3 parity
+# QC & Retry — Runtime 1.0.0 parity
 
 ## 1. A QC
 
@@ -42,7 +42,7 @@ retryEligible = false
 
 只重评，不重生图。
 
-## 4. RC3 Structured-output Protocol
+## 4. V1 Structured-output Protocol
 
 Production evaluator 的响应必须是评审数据实例，而不是 schema。以下均为协议失败：
 
@@ -115,6 +115,8 @@ commercial_finish            >= 9.2
 ```
 
 场景成为第一眼 → `SCENE_DOMINATES_PRODUCT`；产品失去第一主角 → `HERO_WEAK`。
+
+真实 evaluator-only acceptance 中，复用的历史 S02 候选返回 `HERO_WEAK`。V1 保留该硬门槛，不为了制造 PASS 而降低 QC。
 
 ## 8. Validation Pairwise
 
