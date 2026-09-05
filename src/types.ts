@@ -22,6 +22,7 @@ export interface UserFacts {
 export interface ProductTruth {
   productIdentity: string;
   primaryCategory: string;
+  packOrFood?: string;
   visibleComponents: string[];
   visibleCount?: number | null;
   geometry: string[];
