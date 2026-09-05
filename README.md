@@ -3,12 +3,18 @@
 这是交给小程序开发公司的 **Node/TypeScript Runtime 交接仓库**。
 
 ```text
-Handoff Version: handoff-1.0.0-rc.1
-Runtime Source:  PP-Food-Runtime-001 1.0.0-rc.1
-Runtime Commit:  339bca03b864f531a59bd6f0105ef4ddccb94684
+Handoff Version: handoff-1.0.0-rc.2
+Runtime Source:  PP-Food-Runtime-001 1.0.0-rc.2
+Runtime Commit:  0930fe08fd2188196478d658739f4e128527501d
 ```
 
 本仓库不是另一套“参考 Skill”，而是 Python Runtime 的 Node 行为镜像。开发公司应接入这里公开的类型、状态机、Prompt Compiler 与 QC/Retry 契约，不应重新解释方法论。
+
+## RC2 live-acceptance 修复
+
+真实 S02 桔子罐头验收暴露出 Provider 会返回 `pack_or_food = "Pack"`，而 RC1 的 Python 路由曾用大小写敏感的 `"PACK"` 判断，导致包装零售品类与 S02 Golden 路由错误。RC2 在 Python 与 Node 两边都增加确定性归一化：`Pack` / `PACK` 等 casing 先统一为 `PACK`，再进入品类翻译与 Golden 路由。对于当前用户事实明确为 `罐头 / 蜜橘 / 桔子` 且为 PACK 的任务，内部类别统一为 `CANNED_FRUIT_RETAIL`。
+
+Provider 输出仍是观察证据；后端确定性规范化才是生产路由边界。开发公司不得删除这层规范化，也不得直接用模型返回字符串作为模板选择键。
 
 ## 开发公司阅读顺序
 
@@ -42,6 +48,7 @@ A/B 是用户工作流；`PRODUCTION_FAST` / `VALIDATION` 是 B 的后端执行�
 ```text
 Source
 → Product Truth
+→ deterministic Product Truth normalization
 → current Stage A PASS
 → Copy Firewall / Category Translation / Primary Art Direction
 → B Primary（只生成 1 张初始候选）
@@ -90,6 +97,7 @@ COMMERCIAL_FINISH_WEAK
 ## 不能改的核心
 
 - Source 是产品视觉真值最高权限。
+- Vision 输出需要先做确定性规范化，再进入 Category/Golden 路由。
 - B 永远从当前 Job 的 A PASS 图继续。
 - 不允许静默退化为 text-to-image。
 - 产品、包装、器皿、数量、拓扑、表面状态不能被创意改写。
@@ -111,4 +119,4 @@ npm run typecheck
 
 ## 状态
 
-`handoff-1.0.0-rc.1` 是与 Runtime `1.0.0-rc.1` 对齐的生产收敛 RC。真实 Provider / 私有 S01/S02 素材验证仍属于独立的安全验收步骤；没有执行时不得写成已通过。
+`handoff-1.0.0-rc.2` 对齐 Runtime `1.0.0-rc.2 @ 0930fe08fd2188196478d658739f4e128527501d`。RC2 的离线/契约 CI 需要在最终 commit 上通过；真实 S02 Validation + Production Fast 仍需基于修复后的 RC2 做一次定向 live acceptance，完成前不得写成 Live PASS。
