@@ -1,38 +1,42 @@
-# Validation Status — handoff-1.0.0-rc.2
+# Validation Status — handoff-1.0.0-rc.3
 
 ## Version Mapping
 
 ```text
-Node Handoff:    handoff-1.0.0-rc.2
-Runtime Version: 1.0.0-rc.2
-Runtime Commit:  0930fe08fd2188196478d658739f4e128527501d
-SYNC STATUS:     MATCHED
+Node Handoff:    handoff-1.0.0-rc.3
+Runtime Version: 1.0.0-rc.3
+Runtime Commit:  9dd3aa4725efd008ec6382f9abbce81d146ee024
+SYNC TARGET:     MATCHED
+FINAL STATUS:    requires this commit's npm test + npm run typecheck
 ```
 
-## RC2 reason
+## RC3 reason
 
-真实 S02 live acceptance 发现 Vision 返回 `pack_or_food = "Pack"`，RC1 Python 路由却按大小写敏感的 `"PACK"` 判断，导致桔子罐头没有进入 `CANNED_FRUIT_RETAIL`，也没有检索到 S02 S-tier Golden。RC2 在 Python 与 Node 两仓同步增加 Product Truth / pack signal 的确定性规范化；该修复属于路由正确性，不改变已批准的 A/B 视觉方法论。
+真实 S02 `PRODUCTION_FAST` 已完成图片生成并进入 Production Evaluator，但 SiliconFlow 返回 `RawEvaluation` JSON Schema 本身而不是评审数据实例，导致 Pydantic structured-output validation failure。RC3 将 `INVALID_JSON / SCHEMA_ECHO / MODEL_VALIDATION` 归一为 `STRUCTURED_OUTPUT_PROTOCOL_FAILURE`，Production Fast 只允许一次 evaluator-only retry，使用完全相同的 Source / Stage A / Candidate，不重生图、不消耗 creative retry；第二次仍失败则 `NEEDS_HUMAN_REVIEW + EVALUATOR_PROTOCOL_FAILURE`。
+
+RC3 不改变已批准的视觉方法论、Product Truth、Category Translation、Golden floors、Stage A 或 B 图像生成策略。
 
 ## Verified Policy Parity
 
-两仓按代码与契约对齐以下项目：
-
 ```text
-Runtime Modes                   = VALIDATION / PRODUCTION_FAST
-Production initial B renders    = 1
-Production creative retries     <= 1
-Validation creative cycle cap   <= 3
-Evaluator confidence boundary   = 0.65
-Production hard failure set     = MATCHED
-Production soft advisory rule   = MATCHED
-Pairwise image slots            = Stage A / Primary / Challenger
-Stage A can win pairwise        = NO
-Current-job Stage A binding     = REQUIRED
-Pack/food casing normalization  = REQUIRED
-Canned-fruit PACK canonical id  = CANNED_FRUIT_RETAIL
+Runtime Modes                     = VALIDATION / PRODUCTION_FAST
+Production initial B renders      = 1
+Production creative retries       <= 1
+Validation creative cycle cap     <= 3
+Evaluator confidence boundary     = 0.65
+Evaluator protocol retries        <= 1 evaluator call
+Evaluator protocol image renders  = 0
+Protocol second failure           = HUMAN_REVIEW / no image regeneration
+Production hard failure set       = MATCHED
+Production soft advisory rule     = MATCHED
+Pairwise image slots              = Stage A / Primary / Challenger
+Stage A can win pairwise          = NO
+Current-job Stage A binding       = REQUIRED
+Pack/food casing normalization    = REQUIRED
+Canned-fruit PACK canonical id    = CANNED_FRUIT_RETAIL
 ```
 
-Production Hard Failure Set：
+Production Hard Failure Set:
 
 ```text
 PRODUCT_IDENTITY_DRIFT
@@ -44,7 +48,7 @@ SCENE_DOMINATES_PRODUCT
 COMMERCIAL_FINISH_WEAK
 ```
 
-Validation Golden floors remain unchanged from RC1:
+Validation Golden floors remain unchanged:
 
 ```text
 product_hero_strength        9.2
@@ -57,47 +61,37 @@ information_density_control  8.8
 commercial_finish            9.2
 ```
 
-## CI Evidence
+## Python Runtime CI Evidence
 
-Python Runtime RC2 commit `0930fe08fd2188196478d658739f4e128527501d` 已通过 GitHub Actions：
+Final Python Runtime RC3 commit:
 
 ```text
-82 passed
+9dd3aa4725efd008ec6382f9abbce81d146ee024
+85 passed
 3 skipped
 0 failed
+workflow = SUCCESS
 ```
 
-3 个 skipped 是 opt-in 的真实 Provider smoke 与私有 S01/S02 live tests。
+3 skipped are opt-in real-provider/private live tests.
 
-Node RC2 implementation commit `29390964dfe5d37f0cf97f18673f87aa9ed98216` 已通过 GitHub Actions：
+## Node TDD Evidence
 
-```text
-npm test      = 8 passed / 0 failed
-npm typecheck = PASS
-workflow      = SUCCESS
-```
+RC3 protocol tests were added before implementation. RED state: 2 protocol tests failed because `StructuredOutputProtocolError` did not exist. After adding the protocol type and evaluator-only retry implementation, the core Node commit `d80a3a24730d6aa8e806ced290ce450ba6c9954f` passed `npm test` and `npm run typecheck`.
 
-新增 canned-fruit normalization 回归测试在实现前以 `normalizeProductTruth is not a function` 失败，修复后转绿，确认覆盖真实 RC1 路由缺口。
+This release metadata commit must also pass both steps before delivery is considered synchronized.
 
-本状态文件属于文档性收敛；其所在最终 commit 仍必须继续通过同一 `npm test + npm run typecheck` CI，才能保持 `SYNC STATUS: MATCHED`。
+## Live Acceptance Boundary
 
-## Live Acceptance Evidence
+Real provider evidence currently proves:
 
-RC1 真实 Provider run 已证明 SiliconFlow 与 Yunwu 能完成真实请求，但：
+- S02 category/Golden routing bug from RC1 was diagnosed and fixed in RC2.
+- Real S02 Validation on the corrected path can generate actual candidates.
+- Real S02 Production Fast reached image generation and Production Evaluator.
+- The latest live blocker was evaluator schema echo, not image generation.
 
-- S01 Validation：真实生成成功；因严格 Golden floors 返回 `NO_QUALIFIED_WINNER`，无产品/文案硬失败。
-- S02 Validation：运行完成，但结果受上述 RC1 category/Golden routing bug 污染，因此不能作为修复后视觉质量证据。
-- RC1 review-sheet 在找不到 `golden-S02` 时抛出 `StopIteration`，导致后续 S02 Production Fast 未执行。
-
-因此 RC2 live 边界仍为：
-
-```text
-LIVE RC2 S02 VALIDATION       = PENDING
-LIVE RC2 S02 PRODUCTION_FAST  = PENDING
-```
-
-不需要再次烧 S01；只需要对 S02 做一次定向 RC2 live acceptance。
+RC3 live evaluator acceptance remains pending. Do not repeat full image generation solely to validate this fix when the existing S02 candidate can be reused; evaluator-only acceptance is preferred.
 
 ## Security / Private Assets
 
-RC 树只允许空值 `.env.example`。真实 `.env`、API Key、客户 Job 产物、私有 S01/S02、私有 Golden 图片不得提交。
+RC tree contains no real API Key, customer job asset, private S01/S02 or Golden image. Keep credentials only in backend Secrets/env. Old keys exposed in prior chat/files must not be reused.

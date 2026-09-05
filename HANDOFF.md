@@ -2,42 +2,38 @@
 
 ## 1. 版本绑定
 
-本交接版本必须与下列 Python Runtime 行为一致：
-
 ```text
-Node Handoff:   handoff-1.0.0-rc.2
-Runtime:        1.0.0-rc.2
-Runtime Commit: 0930fe08fd2188196478d658739f4e128527501d
+Node Handoff:   handoff-1.0.0-rc.3
+Runtime:        1.0.0-rc.3
+Runtime Commit: 9dd3aa4725efd008ec6382f9abbce81d146ee024
 ```
 
 开发公司不要从旧 Skill、旧对话或旧 Prompt 重新推导业务逻辑。本仓库 `src/` 与上述 Runtime commit 是交付真源。
 
 ## 2. 用户工作流
 
-用户只需要上传一张图并选择：
-
 - `A`：高保真商业商拍，不加 KV 文字。
-- `B`：先获得当前 Job 的 Stage A PASS，再生成商业 KV。
+- `B`：必须先得到当前 Job 的 Stage A PASS，再生成商业 KV。
 
-B 文案必须经过 Copy Firewall；默认文案授权只允许软性、非事实型 campaign copy。
+B 文案经过 Copy Firewall；`按默认文案来` 只授权软性、非事实型 campaign copy，不授权虚构价格、地址、电话、认证、奖项、产地、配方、健康功效等硬事实。
 
-## 3. Product Truth 规范化 — RC2 强制
+## 3. Product Truth normalization — 必须保留
 
 Vision Provider 返回的是观察证据，不允许直接拿原始字符串决定 Category/Golden 路由。
 
-当前生产边界至少执行：
+生产边界至少执行：
 
-- `Pack` / `PACK` 等 casing → 统一 `PACK`
-- `Food` / `FOOD` 等 casing → 统一 `FOOD`
-- 当前用户产品名包含 `罐头 / 蜜橘 / 桔子` 且规范化结果为 `PACK` → `CANNED_FRUIT_RETAIL`
+```text
+Pack / PACK -> PACK
+Food / FOOD -> FOOD
+PACK + 产品名包含 罐头/蜜橘/桔子 -> CANNED_FRUIT_RETAIL
+```
 
-这条规则来自真实 S02 live acceptance：RC1 因 `Pack != PACK` 导致桔子罐头误入 generic category，并错取非 S02 Golden 原则。开发公司不得删除、旁路或重新自由解释该规范化层。
+该规则来自真实 S02 live acceptance。开发公司不得删除、旁路或重新自由解释这层规范化。
 
 ## 4. 两个内部执行策略
 
-### PRODUCTION_FAST
-
-这是小程序线上默认策略。
+### PRODUCTION_FAST — 线上默认
 
 ```text
 B Request
@@ -47,45 +43,82 @@ B Request
 → Category Translation
 → Primary Direction
 → Primary Render
+→ Production Evaluator
 → Production Hard Gate
 → PASS
 ```
 
-如果 Production Hard Gate 检出交付级硬失败，可定向重试一次。**最多一次。** 正常 PASS 不生成 Challenger、不运行 Pairwise。
+正常 PASS 只生成 1 张 Primary，不生成 Challenger、不运行 Pairwise。交付级 Hard Failure 最多允许 1 次 targeted creative retry。
 
-### VALIDATION
-
-用于质量研发、Golden 校准、回归分析：
+### VALIDATION — 内部研发
 
 ```text
 B Request
-→ Require current Stage A PASS
-→ normalize Product Truth
+→ current Stage A PASS
 → Primary + Challenger
-→ Independent Eval x2
+→ Independent Eval × 2
 → Pairwise: Stage A control + Primary + Challenger
 → Qualified winner / review
 ```
 
-Pairwise 不得混入 Source 或 Golden 图作为候选。
+Pairwise 不得把 Source 或 Golden 当候选，Stage A 不能成为 winner。
 
-## 5. 生产 Hard Gate
+## 5. RC3：Production Evaluator structured-output protocol
 
-创意 Retry 只针对：
+真实 S02 `PRODUCTION_FAST` 已经跑到 evaluator，但 SiliconFlow 曾返回 `RawEvaluation` JSON Schema 本身，而不是评审数据实例。RC3 将此类情况与创意失败完全分离。
 
-- `PRODUCT_IDENTITY_DRIFT`
-- `COPY_TRUTH_FAILURE`
-- `MECHANICAL_FAILURE`
-- `REFERENCE_BINDING_FAILURE`
-- `HERO_WEAK`
-- `SCENE_DOMINATES_PRODUCT`
-- `COMMERCIAL_FINISH_WEAK`
+Provider / adapter 至少识别：
+
+```text
+INVALID_JSON
+SCHEMA_ECHO
+MODEL_VALIDATION
+```
+
+并归一为：
+
+```text
+STRUCTURED_OUTPUT_PROTOCOL_FAILURE
+```
+
+Production evaluator 行为固定：
+
+```text
+first protocol failure
+→ evaluator-only retry × 1
+→ exact same Source / Stage A / B Candidate
+→ no image regeneration
+→ zero creative retry cost
+
+second protocol failure
+→ NEEDS_HUMAN_REVIEW
+→ failureCode = EVALUATOR_PROTOCOL_FAILURE
+→ retryEligible = false
+→ failureClass = EVALUATOR_PROTOCOL
+→ do not regenerate image
+```
+
+不得把 schema echo、JSON parse failure 或 model validation failure 转换成 B creative retry。
+
+## 6. Production Hard Gate
+
+只有这些交付问题允许 creative Retry：
+
+```text
+PRODUCT_IDENTITY_DRIFT
+COPY_TRUTH_FAILURE
+MECHANICAL_FAILURE
+REFERENCE_BINDING_FAILURE
+HERO_WEAK
+SCENE_DOMINATES_PRODUCT
+COMMERCIAL_FINISH_WEAK
+```
 
 软审美短板（如 `PHOTO_PLUS_TEXT`、`CATEGORY_CLICHE_DEPENDENCE`、`GENERIC_PREMIUM_SKIN`、`GOLDEN_DISTANCE`）不能单独触发线上重复生图。
 
-Evaluator confidence `<0.65` → `NEEDS_SECOND_EVALUATION`，只重评，不重新生成图片。
+Evaluator confidence `<0.65` → `NEEDS_SECOND_EVALUATION`，只重评，不重生图。
 
-## 6. 不得静默改变的产品方法
+## 7. 不得静默改变的产品方法
 
 1. 当前 source image 是产品视觉真值最高权限。
 2. A 只升级摄影，不改产品，不加海报文案。
@@ -96,48 +129,29 @@ Evaluator confidence `<0.65` → `NEEDS_SECOND_EVALUATION`，只重评，不重�
 7. 产品感官语义是视觉语言第一来源。
 8. Golden 迁移原则，不迁移皮肤。
 9. QC 必须独立看实际像素。
-10. Provider/Evaluator/Runtime 故障不是创意失败，不消耗创意 Retry。
+10. Provider/Evaluator/Runtime 故障不是创意失败，不消耗 creative Retry。
 11. Retry 必须定向修复且 Pass-Freeze。
-12. 不允许为了“更高级”而牺牲产品真实性。
-13. Provider 原始分类字符串必须先规范化再参与路由。
+12. Provider 原始分类字符串必须先规范化再参与路由。
+13. Evaluator structured-output failure 必须先协议化处理，不得触发生图。
 
-## 7. Image Provider
+## 8. Image Provider
 
-Image Provider 必须执行 reference image / image edit，并真正携带当前 Job 的参考图。对 B 来说参考图是当前 Stage A PASS。
+B 的 reference image 必须是当前 Job 的 Stage A PASS。必须记录 reference binding；不允许静默降级为 text-to-image。
 
-至少记录：
+至少记录：job id、source hash、Stage A hash、prompt hash、runtime/handoff version、provider/model/request id、generation latency、QC/failure class、retry count、final decision。
 
-- job id
-- source hash
-- Stage A hash
-- prompt hash
-- runtime/handoff version
-- provider/model/request id
-- generation latency
-- QC / failure class
-- retry count
-- final decision
-
-Reference 未实际绑定时应失败关闭，不允许静默改成纯 text-to-image。
-
-## 8. 中文文字
-
-保留两种策略：
+## 9. 中文文字
 
 - `IMAGE_NATIVE`：模型直接渲染；必须 QC 精确文案。
-- `HYBRID_COMPOSITE`：图像模型负责视觉世界、结构与文字承载空间，后端负责最终准确中文/品牌/价格/地址/二维码等已授权文字。
+- `HYBRID_COMPOSITE`：模型负责视觉世界/结构/承载空间，后端负责最终准确中文和已授权业务信息。
 
-本 RC 同步的是 Runtime 策略与 Prompt 契约；如果开发公司实现 Hybrid 合成层，必须单独记录实现与验收结果，不能声称仓库当前已经实现了完整合成器。
+无论哪种模式都不能绕过 Copy Firewall。
 
-## 9. 安全
+## 10. 安全
 
-API Key 只能存在后端 Secret/环境变量。禁止提交 `.env`、真实 Key、私有 S01/S02、客户 Job 原图或生成物。
+API Key 只能存在后端 Secret/环境变量。禁止提交 `.env`、真实 Key、私有 S01/S02、客户 Job 原图或生成物。已经出现在聊天或历史文件中的旧 Key 视为泄露，不得复用。
 
-任何已经出现在聊天、文件或代码历史中的旧 Key 都应视为泄露，不得复用。
-
-## 10. 开发公司必须返回
-
-初次接入后至少返回：
+## 11. 开发公司必须返回
 
 1. 实际部署 commit/version
 2. Vision / QC / Image provider 与模型名
@@ -147,6 +161,4 @@ API Key 只能存在后端 Secret/环境变量。禁止提交 `.env`、真实 Ke
 6. A/B 最终生成图
 7. Runtime Mode
 8. 是否启用 Hybrid Composite
-9. 对本仓库的任何修改 diff
-
-未经列明，不得静默修改 Prompt、QC、重试上限、规范化规则或图位顺序。
+9. 对 Prompt / QC / Retry / Normalization / Provider Adapter 的任何本地修改 diff
