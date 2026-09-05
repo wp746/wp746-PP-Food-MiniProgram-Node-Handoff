@@ -6,7 +6,7 @@
 Node Handoff:    handoff-1.0.0-rc.2
 Runtime Version: 1.0.0-rc.2
 Runtime Commit:  0930fe08fd2188196478d658739f4e128527501d
-SYNC TARGET:     MATCHED
+SYNC STATUS:     MATCHED
 ```
 
 ## RC2 reason
@@ -25,11 +25,11 @@ Validation creative cycle cap   <= 3
 Evaluator confidence boundary   = 0.65
 Production hard failure set     = MATCHED
 Production soft advisory rule   = MATCHED
-Pairwise image slots             = Stage A / Primary / Challenger
-Stage A can win pairwise         = NO
-Current-job Stage A binding      = REQUIRED
-Pack/food casing normalization   = REQUIRED
-Canned-fruit PACK canonical id   = CANNED_FRUIT_RETAIL
+Pairwise image slots            = Stage A / Primary / Challenger
+Stage A can win pairwise        = NO
+Current-job Stage A binding     = REQUIRED
+Pack/food casing normalization  = REQUIRED
+Canned-fruit PACK canonical id  = CANNED_FRUIT_RETAIL
 ```
 
 Production Hard Failure Set：
@@ -44,7 +44,7 @@ SCENE_DOMINATES_PRODUCT
 COMMERCIAL_FINISH_WEAK
 ```
 
-Validation Golden floors remain a Python Runtime validation concern and are unchanged from RC1:
+Validation Golden floors remain unchanged from RC1:
 
 ```text
 product_hero_strength        9.2
@@ -69,14 +69,17 @@ Python Runtime RC2 commit `0930fe08fd2188196478d658739f4e128527501d` 已通过 G
 
 3 个 skipped 是 opt-in 的真实 Provider smoke 与私有 S01/S02 live tests。
 
-Node RC2 新增 canned-fruit normalization 回归测试。TDD RED 已验证：在实现前该测试以 `normalizeProductTruth is not a function` 失败；实现后运行测试已达到 8/8 PASS。最终交付仍以本文件所在**同一最终 commit**上的以下两个 CI 步骤同时成功为准：
+Node RC2 implementation commit `29390964dfe5d37f0cf97f18673f87aa9ed98216` 已通过 GitHub Actions：
 
 ```text
-npm test
-npm run typecheck
+npm test      = 8 passed / 0 failed
+npm typecheck = PASS
+workflow      = SUCCESS
 ```
 
-如果最终 CI 未通过，则不得报告 `SYNC STATUS: MATCHED`。
+新增 canned-fruit normalization 回归测试在实现前以 `normalizeProductTruth is not a function` 失败，修复后转绿，确认覆盖真实 RC1 路由缺口。
+
+本状态文件属于文档性收敛；其所在最终 commit 仍必须继续通过同一 `npm test + npm run typecheck` CI，才能保持 `SYNC STATUS: MATCHED`。
 
 ## Live Acceptance Evidence
 
@@ -86,7 +89,7 @@ RC1 真实 Provider run 已证明 SiliconFlow 与 Yunwu 能完成真实请求，
 - S02 Validation：运行完成，但结果受上述 RC1 category/Golden routing bug 污染，因此不能作为修复后视觉质量证据。
 - RC1 review-sheet 在找不到 `golden-S02` 时抛出 `StopIteration`，导致后续 S02 Production Fast 未执行。
 
-因此 RC2 当前 live 边界为：
+因此 RC2 live 边界仍为：
 
 ```text
 LIVE RC2 S02 VALIDATION       = PENDING
