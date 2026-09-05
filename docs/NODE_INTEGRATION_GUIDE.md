@@ -1,6 +1,6 @@
-# Node Integration Guide — handoff-1.0.0-rc.3
+# Node Integration Guide — handoff-1.0.0
 
-Runtime source: `PP-Food-Runtime-001 1.0.0-rc.3 @ 9dd3aa4725efd008ec6382f9abbce81d146ee024`.
+Runtime source: `PP-Food-Runtime-001 1.0.0 @ 5a2d6c9757dc0f55c75128587fa0c8cd3dbe112c`.
 
 ## 1. 模块边界
 
@@ -71,7 +71,7 @@ Normalized Product Truth
 
 正常 PASS 只有一次 B image edit。Hard Gate 失败且 `retryEligible=true` 时最多再进行一次 targeted repair。
 
-## 6. RC3 Evaluator Protocol Adapter — 必须实现
+## 6. V1 Evaluator Protocol Adapter — 必须实现
 
 Provider adapter 负责把 structured-output 异常统一成 `StructuredOutputProtocolError`：
 
@@ -105,7 +105,9 @@ second protocol failure
 → no image.edit
 ```
 
-如果你使用的 Vision SDK 有原生 JSON Schema/structured-output 支持，也必须在 adapter 边界验证“返回的是 data instance，不是 schema definition”，并映射相同错误语义。
+如果使用的 Vision SDK 有原生 JSON Schema/structured-output 支持，也必须在 adapter 边界验证“返回的是 data instance，不是 schema definition”，并映射相同错误语义。
+
+真实 evaluator-only acceptance 已证明 Runtime 1.0.0 的协议路径能产出正常 Production Gate；历史 S02 候选返回 `HERO_WEAK` 是候选本身的视觉交付结果，不是协议错误。
 
 ## 7. Stage B — VALIDATION
 
