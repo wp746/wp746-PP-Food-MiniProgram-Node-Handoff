@@ -2,6 +2,17 @@ export type PPFoodMode = "A" | "B";
 export type RuntimeMode = "VALIDATION" | "PRODUCTION_FAST";
 export type TextMode = "IMAGE_NATIVE" | "HYBRID_COMPOSITE";
 
+export type StructuredOutputProtocolReason = "INVALID_JSON" | "SCHEMA_ECHO" | "MODEL_VALIDATION";
+
+export class StructuredOutputProtocolError extends Error {
+  readonly code = "STRUCTURED_OUTPUT_PROTOCOL_FAILURE";
+
+  constructor(readonly reason: StructuredOutputProtocolReason | string) {
+    super(`STRUCTURED_OUTPUT_PROTOCOL_FAILURE: ${reason}`);
+    this.name = "StructuredOutputProtocolError";
+  }
+}
+
 export type FactSource = "OBSERVED_FACT" | "USER_VERIFIED_FACT" | "HIGH_CONFIDENCE_INFERENCE" | "UNKNOWN";
 
 export interface UserFacts {
@@ -130,7 +141,7 @@ export interface ProductionGateResult {
   decision: ProductionGateDecision;
   failureCodes: string[];
   retryEligible: boolean;
-  failureClass: "NONE" | "DELIVERY_HARD_GATE" | "EVALUATOR";
+  failureClass: "NONE" | "DELIVERY_HARD_GATE" | "EVALUATOR" | "EVALUATOR_PROTOCOL";
   evidence: string[];
   repairInstruction: string;
 }
