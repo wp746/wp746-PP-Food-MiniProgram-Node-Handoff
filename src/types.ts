@@ -1,5 +1,17 @@
 export type PPFoodMode = "A" | "B";
+export type RuntimeMode = "VALIDATION" | "PRODUCTION_FAST";
 export type TextMode = "IMAGE_NATIVE" | "HYBRID_COMPOSITE";
+
+export type StructuredOutputProtocolReason = "INVALID_JSON" | "SCHEMA_ECHO" | "MODEL_VALIDATION";
+
+export class StructuredOutputProtocolError extends Error {
+  readonly code = "STRUCTURED_OUTPUT_PROTOCOL_FAILURE";
+
+  constructor(readonly reason: StructuredOutputProtocolReason | string) {
+    super(`STRUCTURED_OUTPUT_PROTOCOL_FAILURE: ${reason}`);
+    this.name = "StructuredOutputProtocolError";
+  }
+}
 
 export type FactSource = "OBSERVED_FACT" | "USER_VERIFIED_FACT" | "HIGH_CONFIDENCE_INFERENCE" | "UNKNOWN";
 
@@ -21,6 +33,7 @@ export interface UserFacts {
 export interface ProductTruth {
   productIdentity: string;
   primaryCategory: string;
+  packOrFood?: string;
   visibleComponents: string[];
   visibleCount?: number | null;
   geometry: string[];
@@ -85,14 +98,58 @@ export interface GoldenVector {
   commercialFinish: number;
 }
 
-export type EvaluationDecision = "PASS" | "RETRY" | "NO_QUALIFIED_WINNER" | "NEEDS_HUMAN_REVIEW" | "PROVIDER_FAILURE";
+export type EvaluationDecision =
+  | "PASS"
+  | "RETRY"
+  | "NO_QUALIFIED_WINNER"
+  | "NEEDS_HUMAN_REVIEW"
+  | "NEEDS_SECOND_EVALUATION"
+  | "EVALUATOR_FAILURE"
+  | "PROVIDER_FAILURE";
+
+export interface EvaluationFailure {
+  code: string;
+  severity: "CRITICAL" | "MAJOR" | "MINOR";
+  evidence: string[];
+}
 
 export interface EvaluationResult {
   decision: EvaluationDecision;
-  failures: Array<{ code: string; severity: "CRITICAL" | "MAJOR" | "MINOR"; evidence: string[] }>;
+  failures: EvaluationFailure[];
   firstRead?: [string?, string?, string?];
   goldenVector?: GoldenVector;
   passFreeze?: Record<string, boolean>;
+  mechanicalPass?: boolean;
+  referenceBindingVerified?: boolean;
+  productTruthPass?: boolean;
+  copyTruthPass?: boolean;
+  productFirstHero?: boolean;
+  confidence?: number;
+}
+
+export interface PairwiseResult {
+  winnerId: "primary" | "challenger";
+  visuallyDistinct: boolean;
+  winnerReason?: string;
+  evidence?: string[];
+  confidence: number;
+}
+
+export type ProductionGateDecision = "PASS" | "RETRY" | "NEEDS_SECOND_EVALUATION" | "NEEDS_HUMAN_REVIEW";
+
+export interface ProductionGateResult {
+  decision: ProductionGateDecision;
+  failureCodes: string[];
+  retryEligible: boolean;
+  failureClass: "NONE" | "DELIVERY_HARD_GATE" | "EVALUATOR" | "EVALUATOR_PROTOCOL";
+  evidence: string[];
+  repairInstruction: string;
+}
+
+export interface PPFoodPipelineOptions {
+  runtimeMode?: RuntimeMode;
+  productionMaxCreativeRetries?: number;
+  validationMaxCreativeCycles?: number;
 }
 
 export interface PPFoodJobInput extends UserFacts {

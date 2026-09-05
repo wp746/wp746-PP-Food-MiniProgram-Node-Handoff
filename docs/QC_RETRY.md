@@ -1,56 +1,112 @@
-# QC & Retry
+# QC & Retry — Runtime 1.0.0 parity
 
-## A QC
+## 1. A QC
 
-顺序：
+产品真值先于创意质量。检查 identity、geometry/count、topology、surface state、package/vessel、plating/physical relations，再看 hero、材质揭示、背景、灯光、景深和 commercial finish。A 未 PASS，不得进入 B。
 
-1. product identity
-2. geometry
-3. visible count
-4. ingredient/component topology
-5. surface state
-6. package/vessel
-7. plating/physical relations
-8. product hero
-9. material reveal
-10. background relevance
-11. lighting
-12. composition/depth
-13. commercial finish
+## 2. Category / Golden Routing Integrity
 
-产品真值属于 hard gate，不能被创意分数抵消。
+Provider observation 必须先经过确定性规范化。`Pack / PACK` casing 不得改变 Category/Golden 路由；包装桔子罐头应进入 `CANNED_FRUIT_RETAIL`。requested Golden 未检索到时记录诊断证据，不得让 review/report 崩溃。
 
-## B Golden Vector
+## 3. PRODUCTION_FAST Hard Gate
 
-0-10 分：
+允许一次 targeted creative retry 的交付级失败：
 
 ```text
-product_hero_strength
-headline_aggression
-typography_product_symbiosis
-one_big_idea_clarity
-compositional_depth_tension
-category_inevitability
-information_density_control
-commercial_finish
+PRODUCT_IDENTITY_DRIFT
+COPY_TRUTH_FAILURE
+MECHANICAL_FAILURE
+REFERENCE_BINDING_FAILURE
+HERO_WEAK
+SCENE_DOMINATES_PRODUCT
+COMMERCIAL_FINISH_WEAK
 ```
+
+以下软审美问题单独出现时不重生图：
+
+```text
+PHOTO_PLUS_TEXT
+CATEGORY_CLICHE_DEPENDENCE
+GENERIC_PREMIUM_SKIN
+GOLDEN_DISTANCE
+other non-breaking style shortfalls
+```
+
+Evaluator confidence `<0.65`：
+
+```text
+NEEDS_SECOND_EVALUATION
+failureClass = EVALUATOR
+retryEligible = false
+```
+
+只重评，不重生图。
+
+## 4. V1 Structured-output Protocol
+
+Production evaluator 的响应必须是评审数据实例，而不是 schema。以下均为协议失败：
+
+```text
+INVALID_JSON
+SCHEMA_ECHO
+MODEL_VALIDATION
+```
+
+统一错误类别：
+
+```text
+STRUCTURED_OUTPUT_PROTOCOL_FAILURE
+```
+
+处理规则：
+
+```text
+第一次协议失败
+→ evaluator-only retry × 1
+→ 使用完全相同的 Source / Stage A / Candidate
+→ instance-only JSON instruction
+→ 不生图
+→ 不消耗 creative retry
+
+第二次协议失败
+→ NEEDS_HUMAN_REVIEW
+→ EVALUATOR_PROTOCOL_FAILURE
+→ failureClass = EVALUATOR_PROTOCOL
+→ retryEligible = false
+→ do not regenerate image
+```
+
+禁止把 `$defs / properties / required / title / type` 等 JSON Schema 回显当成 EvaluationResult。
+
+## 5. PRODUCTION_FAST Retry Budget
+
+```text
+initial B renders = 1
+max creative retry = 1
+provider/evaluator/runtime retry cost = 0 creative retries
+evaluator protocol retry = max 1 evaluator call, 0 image generations
+```
+
+Creative Retry 必须从同一个 current-job Stage A PASS 开始，使用明确 repair instruction，并冻结通过维度。
+
+## 6. VALIDATION Golden Vector
 
 当前门槛：
 
 ```text
-product_hero_strength >= 9.0
-headline_aggression >= 8.8
-typography_product_symbiosis >= 8.5
-one_big_idea_clarity >= 8.3
-compositional_depth_tension >= 8.8
-category_inevitability >= 8.5
-information_density_control >= 7.8
-commercial_finish >= 9.0
+product_hero_strength        >= 9.2
+headline_aggression          >= 8.8
+typography_product_symbiosis >= 8.8
+one_big_idea_clarity         >= 9.0
+compositional_depth_tension  >= 8.8
+category_inevitability       >= 9.0
+information_density_control  >= 8.8
+commercial_finish            >= 9.2
 ```
 
-## First Read
+产品真值、文案真值、机械有效性、Reference Binding 优先于分数。
 
-默认目标：
+## 7. First Read
 
 ```text
 1 PRODUCT
@@ -58,126 +114,22 @@ commercial_finish >= 9.0
 3 BIG IDEA / SECONDARY MESSAGE
 ```
 
-如果第一眼是场景/洞穴/建筑/木牌：`SCENE_DOMINATES_PRODUCT`。
+场景成为第一眼 → `SCENE_DOMINATES_PRODUCT`；产品失去第一主角 → `HERO_WEAK`。
 
-如果第一眼只有大标题、产品弱：`HEADLINE_DOMINATES_PRODUCT`。
+真实 evaluator-only acceptance 中，复用的历史 S02 候选返回 `HERO_WEAK`。V1 保留该硬门槛，不为了制造 PASS 而降低 QC。
 
-## Anti-Pattern
+## 8. Validation Pairwise
 
-必须检查：
-
-```text
-SAFE_EDITORIAL_COLLAPSE
-SCENE_DOMINATES_PRODUCT
-CATEGORY_CLICHE_DEPENDENCE
-GENERIC_PREMIUM_SKIN
-PHOTO_PLUS_TEXT
-TEMPLATE_REUSE
-INFORMATION_STARVATION
-INFORMATION_OVERLOAD
-```
-
-### SAFE_EDITORIAL_COLLAPSE
-
-典型表现：
-
-- 巨大留白
-- 小而“高级”的字
-- 漂亮商拍
-- 低信息密度
-- 缺乏标题压强 / Big Idea / 空间 tension
-
-这种图可能“漂亮”，但不属于默认 PP Food Upper-Bound。
-
-### PHOTO_PLUS_TEXT
-
-如果产品图和文字可以轻易拆开，字体只是贴在空白区：FAIL/RETRY。
-
-### SCENE_DOMINANCE
-
-如果去掉产品后，场景本身比产品更像主视觉：FAIL/RETRY。
-
-## Score Calibration
+Pairwise 且只接收：
 
 ```text
-0-3 severely broken
-4-5 weak
-6 functional
-7 good commercial baseline
-8 strong
-9 Golden-range
-10 exceptional / North-Star-range
+image 1 = Stage A PASS control
+image 2 = Primary
+image 3 = Challenger
 ```
 
-Evaluator 不允许动不动给 9.5。
+Primary/Challenger winner 不代表自动 PASS，仍需独立 Candidate Evaluation / Golden-relative 判断。
 
-每个重要分数必须写：
+## 9. Pass Freeze
 
-- what is visible
-- where it is visible
-- why it helps/hurts
-
-## Pairwise Rule
-
-Primary > Challenger 不等于 Primary PASS。
-
-如果两个都低于门槛：
-
-```text
-NO_QUALIFIED_WINNER
-```
-
-## Retry Mapping
-
-```text
-PRODUCT_IDENTITY_DRIFT -> FIDELITY_RETRY
-PRODUCT_NOT_FIRST_HERO -> HERO_RETRY
-HEADLINE_TOO_WEAK -> HEADLINE_PRESSURE_RETRY
-TYPOGRAPHY_DISCONNECTED -> TYPOGRAPHY_SYMBIOSIS_RETRY
-BIG_IDEA_WEAK -> BIG_IDEA_RETRY
-COMPOSITION_FLAT -> COMPOSITION_RETRY
-CATEGORY_GENERIC -> CATEGORY_TRANSLATION_RETRY
-INFORMATION_STARVED -> INFORMATION_RETRY
-INFORMATION_OVERLOAD -> INFORMATION_RETRY
-COMMERCIAL_FINISH_WEAK -> COMMERCIAL_FINISH_RETRY
-GOLDEN_DISTANCE_TOO_HIGH -> GOLDEN_DISTANCE_RETRY
-```
-
-## Pass Freeze
-
-已经通过的维度必须冻结。
-
-例：
-
-```json
-{
-  "productTruth": true,
-  "productHero": true,
-  "headline": false,
-  "typographySymbiosis": false,
-  "bigIdea": true,
-  "composition": true,
-  "information": true,
-  "commercialFinish": true
-}
-```
-
-Retry 只修 false 及其必要依赖。
-
-## Retry Levels
-
-```text
-1 targeted repair
-2 concept adjustment
-3 art-direction rebuild
-```
-
-B 最大 creative cycles = 3。
-
-超过后：
-
-```text
-NEEDS_HUMAN_REVIEW
-```
-
-不要无限烧图碰运气。
+所有 Creative Retry 冻结已经通过的产品真值和视觉维度，只改失败项及其必要依赖。禁止无目标“再生成一张试试”。Evaluator protocol retry 不是 Creative Retry。

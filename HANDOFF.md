@@ -1,220 +1,166 @@
 # HANDOFF — 小程序开发公司交接说明
 
-## 1. 你们接手的是什么
+## 1. 版本绑定
 
-这是 PP Food 的 Node/TypeScript Prompt Runtime 交接基线。
+```text
+Node Handoff:   handoff-1.0.0
+Runtime:        1.0.0
+Runtime Commit: 5a2d6c9757dc0f55c75128587fa0c8cd3dbe112c
+```
 
-它不是一个“把一大段 Prompt 塞给模型”的方案，而是一条固定生产链。
+开发公司不要从旧 Skill、旧对话或旧 Prompt 重新推导业务逻辑。本仓库 `src/` 与上述 Runtime commit 是交付真源。
 
-目标：
+## 2. 用户工作流
 
-- 用户上传食品/商品图片
-- 选择 A 或 B
-- 后端稳定产出：
-  - A：高保真商业商拍
-  - B：高张力商业 KV
+- `A`：高保真商业商拍，不加 KV 文字。
+- `B`：必须先得到当前 Job 的 Stage A PASS，再生成商业 KV。
 
-## 2. 不要改的核心行为
+B 文案经过 Copy Firewall；`按默认文案来` 只授权软性、非事实型 campaign copy，不授权虚构价格、地址、电话、认证、奖项、产地、配方、健康功效等硬事实。
 
-以下行为属于产品方法论，不是实现建议：
+## 3. Product Truth normalization — 必须保留
 
-1. 当前 source image 是产品视觉真值。
-2. A 只做商拍，不做 KV、不加字。
-3. B 必须基于当前 Job 的 A PASS 图。
-4. B 锁 Product DNA，但不锁死 A 相机。
+Vision Provider 返回的是观察证据，不允许直接拿原始字符串决定 Category/Golden 路由。
+
+生产边界至少执行：
+
+```text
+Pack / PACK -> PACK
+Food / FOOD -> FOOD
+PACK + 产品名包含 罐头/蜜橘/桔子 -> CANNED_FRUIT_RETAIL
+```
+
+该规则来自真实 S02 live acceptance。开发公司不得删除、旁路或重新自由解释这层规范化。
+
+## 4. 两个内部执行策略
+
+### PRODUCTION_FAST — 线上默认
+
+```text
+B Request
+→ Require current Stage A PASS
+→ normalize Product Truth
+→ Copy Firewall
+→ Category Translation
+→ Primary Direction
+→ Primary Render
+→ Production Evaluator
+→ Production Hard Gate
+→ PASS
+```
+
+正常 PASS 只生成 1 张 Primary，不生成 Challenger、不运行 Pairwise。交付级 Hard Failure 最多允许 1 次 targeted creative retry。
+
+### VALIDATION — 内部研发
+
+```text
+B Request
+→ current Stage A PASS
+→ Primary + Challenger
+→ Independent Eval × 2
+→ Pairwise: Stage A control + Primary + Challenger
+→ Qualified winner / review
+```
+
+Pairwise 不得把 Source 或 Golden 当候选，Stage A 不能成为 winner。
+
+## 5. V1 Production Evaluator structured-output protocol
+
+真实 S02 `PRODUCTION_FAST` 曾跑到 evaluator，但 SiliconFlow 返回 `RawEvaluation` JSON Schema 本身，而不是评审数据实例。Runtime 1.0.0 保留 RC3 已验证的协议保护，并将此类情况与创意失败完全分离。
+
+Provider / adapter 至少识别：
+
+```text
+INVALID_JSON
+SCHEMA_ECHO
+MODEL_VALIDATION
+```
+
+并归一为：
+
+```text
+STRUCTURED_OUTPUT_PROTOCOL_FAILURE
+```
+
+Production evaluator 行为固定：
+
+```text
+first protocol failure
+→ evaluator-only retry × 1
+→ exact same Source / Stage A / B Candidate
+→ no image regeneration
+→ zero creative retry cost
+
+second protocol failure
+→ NEEDS_HUMAN_REVIEW
+→ failureCode = EVALUATOR_PROTOCOL_FAILURE
+→ retryEligible = false
+→ failureClass = EVALUATOR_PROTOCOL
+→ do not regenerate image
+```
+
+不得把 schema echo、JSON parse failure 或 model validation failure 转换成 B creative retry。
+
+真实 evaluator-only acceptance 已验证该协议链能返回正常 Production Gate。复用的历史 S02 候选本身返回 `HERO_WEAK`；这属于正常视觉交付门槛，不属于 evaluator protocol failure，也不得通过降低门槛伪造 PASS。
+
+## 6. Production Hard Gate
+
+只有这些交付问题允许 creative Retry：
+
+```text
+PRODUCT_IDENTITY_DRIFT
+COPY_TRUTH_FAILURE
+MECHANICAL_FAILURE
+REFERENCE_BINDING_FAILURE
+HERO_WEAK
+SCENE_DOMINATES_PRODUCT
+COMMERCIAL_FINISH_WEAK
+```
+
+软审美短板（如 `PHOTO_PLUS_TEXT`、`CATEGORY_CLICHE_DEPENDENCE`、`GENERIC_PREMIUM_SKIN`、`GOLDEN_DISTANCE`）不能单独触发线上重复生图。
+
+Evaluator confidence `<0.65` → `NEEDS_SECOND_EVALUATION`，只重评，不重生图。
+
+## 7. 不得静默改变的产品方法
+
+1. 当前 source image 是产品视觉真值最高权限。
+2. A 只升级摄影，不改产品，不加海报文案。
+3. B 必须从当前 Job 的 A PASS 图继续。
+4. B 锁 Product DNA，不锁死 A 相机机位。
 5. Product Hero #1，Headline Hero #2。
-6. Category 只提供约束和语境，不直接套固定视觉模板。
-7. 当前产品感官语义是视觉语言的第一来源。
-8. 字体材质必须能追溯到当前产品，而不是品类标签。
-9. B 默认允许中高信息密度，不默认极简。
-10. 生成模型不得自己宣布自己“世界级”。QC 必须独立。
-11. 两个候选里较好的一张，不代表它已经合格；都低于门槛时返回 `NO_QUALIFIED_WINNER`。
-12. Retry 必须按失败码定向修复，不允许随机整图重做。
+6. Category 是上下文与约束，不是统一模板。
+7. 产品感官语义是视觉语言第一来源。
+8. Golden 迁移原则，不迁移皮肤。
+9. QC 必须独立看实际像素。
+10. Provider/Evaluator/Runtime 故障不是创意失败，不消耗 creative Retry。
+11. Retry 必须定向修复且 Pass-Freeze。
+12. Provider 原始分类字符串必须先规范化再参与路由。
+13. Evaluator structured-output failure 必须先协议化处理，不得触发生图。
 
-## 3. 推荐后端状态机
+## 8. Image Provider
 
-### A
+B 的 reference image 必须是当前 Job 的 Stage A PASS。必须记录 reference binding；不允许静默降级为 text-to-image。
 
-```text
-A_REQUEST
--> VISION_ANALYSIS
--> PRODUCT_TRUTH_READY
--> A_DIRECTION_READY
--> A_PROMPT_READY
--> A_RENDER
--> A_QC
--> A_PASS | A_RETRY | FAIL
-```
+至少记录：job id、source hash、Stage A hash、prompt hash、runtime/handoff version、provider/model/request id、generation latency、QC/failure class、retry count、final decision。
 
-### B
+## 9. 中文文字
 
-```text
-B_REQUEST
--> REQUIRE_CURRENT_A_PASS
--> COPY_FIREWALL
--> CATEGORY_TRANSLATION
--> PRIMARY_DIRECTION
--> CHALLENGER_DIRECTION
--> PRIMARY_RENDER
--> CHALLENGER_RENDER
--> INDEPENDENT_EVAL
--> QUALIFIED_WINNER?
-     NO -> TARGETED_RETRY
-     YES -> FINAL_QC
--> B_PASS
-```
+- `IMAGE_NATIVE`：模型直接渲染；必须 QC 精确文案。
+- `HYBRID_COMPOSITE`：模型负责视觉世界/结构/承载空间，后端负责最终准确中文和已授权业务信息。
 
-## 4. 接口建议
+无论哪种模式都不能绕过 Copy Firewall。
 
-开发公司可以保留现有 Node 项目结构，只需把 Prompt Runtime 抽成服务层：
+## 10. 安全
 
-```ts
-analyzeSourceImage()
-runStageA()
-evaluateStageA()
-buildCopyAllowlist()
-translateCategoryVisualLanguage()
-buildPrimaryDirection()
-buildChallengerDirection()
-compileStageBPrompt()
-renderStageB()
-evaluateStageB()
-planTargetedRetry()
-```
+API Key 只能存在后端 Secret/环境变量。禁止提交 `.env`、真实 Key、私有 S01/S02、客户 Job 原图或生成物。已经出现在聊天或历史文件中的旧 Key 视为泄露，不得复用。
 
-## 5. Image Provider 约束
+## 11. 开发公司必须返回
 
-图片模型必须支持 reference image / image editing。
-
-对每次生成保存：
-
-- 当前 job id
-- source hash
-- A PASS hash
-- prompt hash
-- provider / model id
-- output image
-- QC result
-
-不能静默退化成纯 text-to-image。
-
-## 6. 文本生成模式
-
-提供两种模式：
-
-### `IMAGE_NATIVE`
-图片模型直接渲染中文。
-
-优点：空间融合更自然。
-
-风险：中文可能错字。
-
-### `HYBRID_COMPOSITE`
-图片模型负责：
-
-- 产品
-- 场景
-- 文字承载结构
-- 标题空间规划
-- 材质/光影提示
-
-Node/Canvas/Sharp 后处理负责最终准确中文、品牌、价格、地址、二维码。
-
-正式商业上线更推荐保留 Hybrid 作为兜底。
-
-## 7. Prompt 文件怎么用
-
-不要把 `docs/PROMPT_RUNTIME_FULL.md` 整段作为一个 system prompt。
-
-请使用 `src/ppFoodPrompts.ts` 中对应模块：
-
-- `GLOBAL_ORCHESTRATOR_SYSTEM`
-- `VISION_OBSERVER_SYSTEM`
-- `STAGE_A_DIRECTOR_SYSTEM`
-- `COPY_FIREWALL_SYSTEM`
-- `CATEGORY_TRANSLATOR_SYSTEM`
-- `B_ART_DIRECTOR_SYSTEM`
-- `B_EVALUATOR_SYSTEM`
-- `RETRY_PLANNER_SYSTEM`
-- `compileStageAPrompt()`
-- `compileStageBPrompt()`
-
-## 8. 当前验证状态
-
-当前已明确达到预期方向的视觉母版包括：
-
-- S01 椰椰西瓜冰：感官 -> 材质 -> 空间字体世界
-- S02 桔子罐头：包装 Hero + 中高信息密度 + 成熟零售广告完成度
-
-其他品类仍需继续做泛化稳定性验证，因此：
-
-```text
-HANDOFF STATUS = VALIDATED_BASELINE
-PRODUCTION FREEZE = NOT YET
-```
-
-开发时不要擅自把此版本标记为最终冻结版。
-
-## 9. 事实安全
-
-永远禁止自行编造：
-
-- 价格
-- 地址
-- 电话
-- 认证
-- 奖项
-- 产地
-- 品牌历史
-- 配方/成分
-- 健康功效
-- 销量
-- 折扣
-- 净含量
-- 门店数
-
-测试板式需要假数据时，后端必须标记：
-
-```text
-LAYOUT_TEST_MODE=true
-```
-
-并且禁止把测试假数据写回正式产品事实。
-
-## 10. 验收时重点看什么
-
-A：
-
-- 产品是否还是原产品
-- 表面/数量/结构是否漂移
-- 背景是否高级但不抢产品
-- 灯光是否真正提升材质
-- 是否仍是商拍而不是海报
-
-B：
-
-- 产品是否第一眼
-- 标题是否第二眼
-- 标题有没有视觉质量和空间存在感
-- 字体材质是否来自产品属性
-- 是否有一个明确 Big Idea
-- 是否有多层空间
-- 是否有品类必然性
-- 信息是否丰富但不乱
-- 是否像成熟 Campaign，而不是 AI 海报草稿
-
-## 11. 需要开发公司返回给甲方的内容
-
-完成初次接入后，请提供：
-
-1. Node 接入文件路径
-2. 实际使用的 Vision / Image / QC 模型名
-3. A 请求与响应样例
-4. B 请求与响应样例
-5. 一次完整 Job 的日志（脱敏）
-6. Prompt hash
-7. A/B 生成图
+1. 实际部署 commit/version
+2. Vision / QC / Image provider 与模型名
+3. A/B 请求响应样例
+4. 脱敏完整 Job 日志
+5. Source / Stage A / Prompt / Output hash
+6. A/B 最终生成图
+7. Runtime Mode
 8. 是否启用 Hybrid Composite
-9. 是否存在任何你们自行修改的 Prompt 规则
-
-任何对本仓库规则的修改，都必须单独列出 diff，不要静默修改。
+9. 对 Prompt / QC / Retry / Normalization / Provider Adapter 的任何本地修改 diff

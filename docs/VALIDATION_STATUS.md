@@ -1,78 +1,97 @@
-# Validation Status
+# Validation Status — handoff-1.0.0
 
-## Current Status
-
-```text
-HANDOFF BASELINE: READY
-PRODUCTION FREEZE: NOT YET
-```
-
-当前已验证方向：
-
-### S01 椰椰西瓜冰
-
-确认有效的原则：
-
-- Product Hero 强
-- Headline Hero 强
-- 感官语义 -> 材质 -> 空间字体
-- 多层空间共构
-- 年轻、清凉、果感与商业信息共存
-
-### S02 桔子罐头
-
-确认有效的原则：
-
-- Package Hero 强
-- 主标题强
-- 中高信息密度但秩序清晰
-- 金黄果香/阳光/丰盛感能够形成成熟零售广告世界
-
-## 还需要继续验证的品类
-
-优先：
-
-1. 中式热菜
-2. 汤面/米线
-3. 烘焙
-4. 蛋糕/甜点
-5. 酸菜鱼/川湘热菜
-6. 煲类
-7. 西餐
-8. 炸物/快餐
-9. 中式糕点
-10. 夜市小吃
-
-## 生产冻结前建议门槛
-
-每个代表 Case 重复 3 次：
+## Version Mapping
 
 ```text
-Fidelity 3/3 PASS
-Copy 3/3 PASS
-Category 3/3 PASS
-Catastrophic Drift = 0
-Upper-Bound >= 2/3 PASS
-Worst run >= strong commercial baseline
+Node Handoff:    handoff-1.0.0
+Runtime Version: 1.0.0
+Runtime Commit:  5a2d6c9757dc0f55c75128587fa0c8cd3dbe112c
+SYNC TARGET:     MATCHED
+FINAL STATUS:    pending this final Node commit's npm test + npm run typecheck
 ```
 
-重点是提高 `QUALITY FLOOR`，而不是 Best-of-20。
+## Production V1 reason
 
-## 开发公司现阶段应该做什么
+V1 promotes the RC3 behavior to production without changing the approved A/B visual methodology. The final release includes two live-discovered hardening fixes:
 
-可以：
+1. Product Truth routing normalizes raw provider casing (`Pack -> PACK`) before category/Golden routing; canned-fruit package jobs resolve to `CANNED_FRUIT_RETAIL`.
+2. Production evaluator structured-output failures (`INVALID_JSON / SCHEMA_ECHO / MODEL_VALIDATION`) are normalized to `STRUCTURED_OUTPUT_PROTOCOL_FAILURE`; Production Fast allows one evaluator-only retry on the same Source / Stage A / Candidate, with zero image regeneration and zero creative-retry cost. A second protocol failure fails closed to human review.
 
-- 按此仓库接入现有 Node 项目
-- 做 Provider Adapter
-- 做 A/B API 路由
-- 做 Prompt Compiler
-- 做 Artifact/QC 日志
-- 做 IMAGE_NATIVE / HYBRID_COMPOSITE 两种文字模式
+## Verified Policy Parity
 
-不要：
+```text
+Runtime Modes                     = VALIDATION / PRODUCTION_FAST
+Production initial B renders      = 1
+Production creative retries       <= 1
+Validation creative cycle cap     <= 3
+Evaluator confidence boundary     = 0.65
+Evaluator protocol retries        <= 1 evaluator call
+Evaluator protocol image renders  = 0
+Protocol second failure           = HUMAN_REVIEW / no image regeneration
+Production hard failure set       = MATCHED
+Production soft advisory rule     = MATCHED
+Pairwise image slots              = Stage A / Primary / Challenger
+Stage A can win pairwise          = NO
+Current-job Stage A binding       = REQUIRED
+Pack/food casing normalization    = REQUIRED
+Canned-fruit PACK canonical id    = CANNED_FRUIT_RETAIL
+```
 
-- 自己重新发明另一套 Prompt
-- 静默删除 QC
-- B 直接跳过 A
-- 把所有模块合并为一个自由 Agent
-- 把本版本标为最终冻结版
+Production Hard Failure Set:
+
+```text
+PRODUCT_IDENTITY_DRIFT
+COPY_TRUTH_FAILURE
+MECHANICAL_FAILURE
+REFERENCE_BINDING_FAILURE
+HERO_WEAK
+SCENE_DOMINATES_PRODUCT
+COMMERCIAL_FINISH_WEAK
+```
+
+Validation Golden floors remain unchanged:
+
+```text
+product_hero_strength        9.2
+headline_aggression          8.8
+typography_product_symbiosis 8.8
+one_big_idea_clarity         9.0
+compositional_depth_tension  8.8
+category_inevitability       9.0
+information_density_control  8.8
+commercial_finish            9.2
+```
+
+## Python Runtime V1 CI Evidence
+
+Final Runtime production-freeze commit:
+
+```text
+5a2d6c9757dc0f55c75128587fa0c8cd3dbe112c
+85 passed
+3 skipped
+0 failed
+workflow 33959171648 = SUCCESS
+```
+
+The 3 skipped tests are opt-in real-provider/private live tests; they are not silently treated as PASS.
+
+## Node TDD Evidence
+
+The evaluator protocol contract was introduced test-first during RC3. RED state: protocol tests failed before `StructuredOutputProtocolError` and evaluator-only retry existed. After implementation, RC3 passed 10/10 Node tests plus TypeScript typecheck. The final handoff-1.0.0 metadata/mapping commit must also pass both steps before delivery is marked synchronized.
+
+## Live Acceptance Closure
+
+Real provider evidence now proves:
+
+- The S02 category routing bug was diagnosed and fixed: raw `Pack` normalizes to `PACK`, and the corrected V1 route is `CANNED_FRUIT_RETAIL`.
+- Real S02 image generation reached Production Fast and exposed the evaluator schema-echo protocol failure.
+- A later self-contained evaluator-only acceptance reused an already-generated real S02 candidate and called SiliconFlow only; it performed no Yunwu regeneration.
+- Runtime 1.0.0/RC3 evaluator behavior parsed the provider response into a normal Production Gate instead of crashing on a JSON-Schema echo.
+- The reused historical candidate returned `RETRY / HERO_WEAK`. This is a visual delivery-hard-gate result, not a structured-output protocol failure. The V1 release retains this gate rather than weakening QC to manufacture PASS.
+
+This evaluator-only acceptance is technical protocol evidence; it is not claimed as a fresh V1 image-quality render.
+
+## Security / Private Assets
+
+The handoff tree must contain no real API Key, customer job asset, private S01/S02 or Golden image. Keep credentials only in backend Secrets/env. Old keys exposed in prior chat/files must not be reused.

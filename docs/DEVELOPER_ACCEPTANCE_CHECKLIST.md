@@ -1,67 +1,104 @@
-# Developer Acceptance Checklist
+# Developer Acceptance Checklist — handoff-1.0.0
 
-开发公司初次接入完成后，请逐项确认：
+Runtime source: `PP-Food-Runtime-001 1.0.0 @ 5a2d6c9757dc0f55c75128587fa0c8cd3dbe112c`.
+
+开发公司完成接入后逐项确认。
 
 ## Architecture
 
-- [ ] A 与 B 是两条明确状态机
-- [ ] B 只能使用当前 Job 的 A PASS
-- [ ] Vision / Director / Image / Evaluator 角色分离
-- [ ] 业务 Controller 不直接自由拼 Prompt
-- [ ] Prompt 唯一真源来自 `src/ppFoodPrompts.ts`
+- [ ] A / B 用户工作流分离
+- [ ] B 只能使用 current-job A PASS
+- [ ] Vision / Director / Image / Evaluator 职责分离
+- [ ] Controller 不另写一套 Prompt / Retry
+- [ ] `src/ppFoodPrompts.ts` + `src/pipeline.ts` 是 Node 行为真源
+- [ ] 线上显式 `runtimeMode=PRODUCTION_FAST`
+
+## Product Truth Normalization
+
+- [ ] raw `packOrFood="Pack"` → `PACK`
+- [ ] `Food / FOOD` casing 不影响 FOOD
+- [ ] `PACK + 桔子罐头/蜜橘/罐头` → `CANNED_FRUIT_RETAIL`
+- [ ] Controller 不直接拿 Provider raw category/pack 选模板或 Golden
+- [ ] 外部已有 ProductTruth 进入 Stage B 时仍执行 normalization
 
 ## Product Fidelity
 
-- [ ] A 使用 source reference
-- [ ] B 使用 current-job A PASS reference
-- [ ] package/vessel 不被重设计
-- [ ] ingredient topology 不被随意修改
-- [ ] Product Truth failure 能阻断继续生成
+- [ ] A 使用 source reference edit
+- [ ] B 使用 current-job A PASS reference edit
+- [ ] package/vessel、count、geometry、topology、surface state 不被重设计
+- [ ] reference 未绑定时失败关闭，不 text-to-image fallback
+- [ ] Product Truth / Copy Truth failure 阻断交付
 
-## B Creative System
+## PRODUCTION_FAST
 
-- [ ] Product Hero #1
-- [ ] Headline Hero #2
-- [ ] One Big Idea 恰好一个主导概念
-- [ ] Typography material 来自当前产品感官语义
-- [ ] 不套统一品类皮肤
-- [ ] Primary / Challenger 至少两个结构维度不同
-- [ ] 两张都不够好时可返回 NO_QUALIFIED_WINNER
+- [ ] 正常 PASS 只生成 1 张初始 Primary
+- [ ] 正常 PASS 不生成 Challenger
+- [ ] 正常 PASS 不运行 Pairwise
+- [ ] Production Hard Gate 独立看实际图片
+- [ ] Hard Failure 最多 1 次 targeted creative retry
+- [ ] 软审美问题单独出现不自动烧第二张图
+- [ ] evaluator confidence `<0.65` 只重评，不重生图
+- [ ] Provider / Evaluator / Runtime failure 消耗 0 creative retry
 
-## QC
+## V1 Evaluator Protocol
 
-- [ ] A 有独立 QC
-- [ ] B 有独立 Evaluator
-- [ ] Evaluator 看图，不读取生成器自评分
-- [ ] 有 First Read 检查
-- [ ] 有 Golden Vector
-- [ ] 有 Anti-Pattern 检查
-- [ ] Retry 按 failure code 定向修复
-- [ ] 最大 B creative cycles = 3
+- [ ] Vision adapter 能识别 `INVALID_JSON`
+- [ ] Vision adapter 能识别 `SCHEMA_ECHO`
+- [ ] Vision adapter 能识别 `MODEL_VALIDATION`
+- [ ] 三者统一为 `STRUCTURED_OUTPUT_PROTOCOL_FAILURE`
+- [ ] schema definition (`$defs/properties/required/title/type`) 不会被当成 EvaluationResult data instance
+- [ ] 第一次 protocol failure 只重 evaluator 1 次
+- [ ] evaluator retry 使用完全相同 Source / Stage A / Candidate
+- [ ] evaluator retry 不调用 `image.edit`
+- [ ] evaluator retry 消耗 0 creative retry
+- [ ] 第二次 protocol failure → `NEEDS_HUMAN_REVIEW`
+- [ ] 第二次 protocol failure → `EVALUATOR_PROTOCOL_FAILURE`
+- [ ] 第二次 protocol failure → `retryEligible=false`
+- [ ] 第二次 protocol failure 不触发生图
+
+## VALIDATION
+
+- [ ] Primary / Challenger 都生成
+- [ ] 两候选独立评价
+- [ ] Pairwise 只接收 Stage A control / Primary / Challenger
+- [ ] Stage A 不能成为 winner
+- [ ] Golden floors 与 Runtime 1.0.0 一致
+- [ ] 有 First Read / Golden Vector / Anti-Pattern
+- [ ] 不合格时 review / named retry，不强行 PASS
 
 ## Copy / Security
 
-- [ ] API Key 只在服务端
-- [ ] 未支持硬事实不会被自动编造
-- [ ] LAYOUT_TEST_MODE 与 production facts 隔离
+- [ ] API Key 只在后端 Secret / env
+- [ ] `.env`、客户原图、私有 Golden、Job artifacts 不提交 Git
+- [ ] 未授权硬事实不自动编造
+- [ ] `defaultCopyAuthorized=true` 只授权非事实型软 copy
 - [ ] 日志不输出 Authorization / API Key
 - [ ] 小程序前端不直连模型 Provider
 
+## Artifact / Observability
+
+- [ ] 保存 runtime/handoff version
+- [ ] 保存 source / Stage A / prompt / output hash
+- [ ] 保存 normalized packOrFood / primaryCategory
+- [ ] 保存 provider/model/request id
+- [ ] 保存 generation latency、failure class、creative retry count、evaluator protocol retry count、final decision
+- [ ] 能还原 Job 实际执行模式
+
 ## Text Rendering
 
-- [ ] IMAGE_NATIVE 模式可用
-- [ ] 文案准确度 QC 可用
-- [ ] HYBRID_COMPOSITE 预留或已实现
+- [ ] IMAGE_NATIVE 实际可见文案接受 QC
+- [ ] HYBRID_COMPOSITE（如实现）单独记录实现/验收
+- [ ] Hybrid 不能绕过 Copy Firewall
 
 ## Delivery Back to Owner
 
-请返回：
-
-- [ ] 接入 commit SHA
-- [ ] 使用的 Vision / Image / QC 模型
+- [ ] 部署 commit SHA / handoff version
+- [ ] Vision / Image / QC provider 与模型
 - [ ] A 调用示例
-- [ ] B 调用示例
+- [ ] Production Fast B 调用示例与调用次数
+- [ ] evaluator protocol retry 日志样例（脱敏）
+- [ ] Validation 调用示例（如启用）
 - [ ] 一条完整脱敏 Job 日志
 - [ ] A 输出图
-- [ ] B Primary / Challenger / Final 图
-- [ ] 对 Prompt 的任何本地改动 diff
+- [ ] B 最终输出图
+- [ ] 对 Prompt / QC / Retry / Normalization / Provider Adapter 的任何本地修改 diff

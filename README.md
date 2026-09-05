@@ -1,147 +1,112 @@
 # PP Food MiniProgram Node Handoff
 
-这是给小程序开发公司的 **Node/TypeScript 交接基线**。
+这是交给小程序开发公司的 **Node/TypeScript Runtime 交接仓库**。
 
-> 当前版本：`handoff-v1.0.0`
->
-> 状态：**已验证方向基线，不是最终冻结版**。S01「椰椰西瓜冰」与 S02「桔子罐头」已证明当前 B/KV 视觉方向接近目标；跨更多品类的稳定性验证仍在继续。
+```text
+Handoff Version: handoff-1.0.0
+Runtime Source:  PP-Food-Runtime-001 1.0.0
+Runtime Commit:  5a2d6c9757dc0f55c75128587fa0c8cd3dbe112c
+```
 
-## 开发公司先读什么
+本仓库不是另一套 Skill，而是 Python Runtime 的生产行为镜像。开发公司应按本仓库的类型、状态机、Prompt Compiler、QC/Retry 契约实现，不得重新解释方法论。
 
-按顺序阅读：
+## V1：Production Evaluator 协议保护
+
+真实 S02 `PRODUCTION_FAST` 曾跑到 Production Evaluator，但 SiliconFlow 返回 `RawEvaluation` 的 JSON Schema 本身，而不是评审数据实例。V1 保留 RC3 已验证的 structured-output protocol protection。
+
+Node 交接行为必须与 Python Runtime 1.0.0 一致：
+
+```text
+Production evaluator
+→ valid EvaluationResult → normal Production Hard Gate
+→ STRUCTURED_OUTPUT_PROTOCOL_FAILURE
+   → evaluator-only retry × 1
+   → same Source / Stage A / B Candidate
+   → no image regeneration
+   → zero creative retry cost
+→ protocol failure again
+   → NEEDS_HUMAN_REVIEW
+   → EVALUATOR_PROTOCOL_FAILURE
+   → retryEligible = false
+```
+
+`INVALID_JSON`、`SCHEMA_ECHO`、`MODEL_VALIDATION` 都属于 structured-output protocol failure。Provider adapter 应把这些错误归一为 `STRUCTURED_OUTPUT_PROTOCOL_FAILURE`，而不是当成创意失败。
+
+真实 evaluator-only acceptance 已确认：SiliconFlow 不再因 schema echo 路径直接导致 Pydantic 崩溃，而能返回正常 Production Gate 结果。该验收复用了历史 S02 候选；该旧候选本身被判 `HERO_WEAK`，这属于合法交付硬门槛，不代表 evaluator protocol 失败，也不会为了测试变绿而降低 QC。
+
+## V1：Product Truth normalization
+
+Vision Provider 输出是观察证据，不是内部 routing key。`Pack / PACK` 必须先统一为 `PACK`；当前任务为包装桔子/蜜橘/罐头时，内部类别必须进入 `CANNED_FRUIT_RETAIL`。不得删除这层确定性规范化。
+
+## 用户层 A / B
+
+- `A`：高保真商业商拍，只升级摄影，不做 KV、不加字。
+- `B`：必须基于当前 Job 的 Stage A PASS 图继续。锁 Product DNA，不锁死相机。
+
+`按默认文案来` 只授权非事实型软 campaign copy，不授权虚构价格、地址、电话、认证、奖项、产地、净含量、配方、健康功效等硬事实。
+
+## Runtime Mode
+
+### PRODUCTION_FAST — 小程序默认
+
+```text
+Source
+→ Product Truth + deterministic normalization
+→ current Stage A PASS
+→ Copy Firewall / Category Translation / Primary Art Direction
+→ B Primary（1 张初始图）
+→ Independent Production Hard Gate
+→ PASS
+```
+
+只有交付级硬错误允许最多 1 次 targeted creative retry。正常 PASS 不生成 Challenger、不跑 Pairwise。
+
+Provider / Evaluator / Runtime 故障不消耗 creative retry。Evaluator protocol failure 只允许重跑 evaluator，绝不能因此重生图。
+
+### VALIDATION — 内部质量研发
+
+```text
+Primary + Challenger
+→ independent evaluations
+→ Pairwise: Stage A control + Primary + Challenger
+```
+
+Stage A 只作为 control，不能成为 winner。Validation 的 Golden floors 与 Python Runtime 保持一致。
+
+## Production Hard Failure Set
+
+```text
+PRODUCT_IDENTITY_DRIFT
+COPY_TRUTH_FAILURE
+MECHANICAL_FAILURE
+REFERENCE_BINDING_FAILURE
+HERO_WEAK
+SCENE_DOMINATES_PRODUCT
+COMMERCIAL_FINISH_WEAK
+```
+
+`PHOTO_PLUS_TEXT`、`CATEGORY_CLICHE_DEPENDENCE`、`GENERIC_PREMIUM_SKIN`、`GOLDEN_DISTANCE` 等软审美问题不能单独触发线上重生图。
+
+## 开发公司阅读顺序
 
 1. `HANDOFF.md`
 2. `docs/NODE_INTEGRATION_GUIDE.md`
 3. `docs/PROMPT_RUNTIME_FULL.md`
-4. `docs/CATEGORY_PROFILES.md`
-5. `docs/QC_RETRY.md`
-6. `docs/SECURITY_AND_FACTS.md`
+4. `docs/QC_RETRY.md`
+5. `docs/SECURITY_AND_FACTS.md`
+6. `src/types.ts`
 7. `src/ppFoodPrompts.ts`
 8. `src/pipeline.ts`
 
-## 这套东西解决什么
-
-小程序用户只需要：
-
-- 上传一张食品/商品图片
-- 选择 `A`（商拍）或 `B`（海报 KV）
-- B 可额外填写标题、副标题、slogan、品牌、卖点等
-
-后端负责：
+## CI 门槛
 
 ```text
-上传原图
-  -> Vision Observer
-  -> Product Truth
-  -> A 商拍
-  -> A QC
-  -> A PASS
-  -> B Copy Firewall
-  -> Category Visual Translation
-  -> B Art Director
-  -> Primary + Challenger
-  -> B Prompt Compiler
-  -> Image Model
-  -> Independent B Evaluator
-  -> Targeted Retry
-  -> Final
+npm test
+npm run typecheck
 ```
 
-## 最重要的接入原则
+必须在同一最终 commit 上同时通过，才能标记 handoff 同步完成。
 
-**不要**把所有规则拼成一个超长 system prompt 后让一个模型自由理解。
+## 安全
 
-职责必须拆开：
-
-- Vision：只识图、抽 Product Truth
-- A Director：只做商拍艺术指导
-- A Image Model：执行商拍
-- A QC：只判保真/商拍质量
-- Copy Firewall：只做文案事实隔离
-- Category Translator：只输出当前产品视觉语言
-- B Art Director：只输出结构化方向
-- B Image Model：执行 KV
-- B Evaluator：独立看图打分/判失败码
-- Retry：只修失败维度
-
-## A / B 定义
-
-### A = 高保真商业商拍
-
-- 保留真实产品 DNA
-- 升级灯光、背景、空间、景深、质感、镜头
-- **不做海报，不加字**
-
-### B = 商业 KV
-
-- 必须基于当前 Job 的 A PASS 图
-- 锁 Product DNA，不锁死 A 的相机机位
-- 产品是 Hero #1
-- 主标题是 Hero #2
-- 标题材质必须从当前产品感官属性里“长出来”
-- 默认不追求极简
-- 允许中高信息密度，但必须有层级
-
-## 推荐技术栈
-
-现有 Node 项目可直接使用：
-
-- TypeScript
-- 任意 HTTP client
-- Vision/QC：多模态 LLM
-- Image：支持 reference image / image edit 的图像模型
-- 后端环境变量保存 API Key
-
-## 文件结构
-
-```text
-src/
-  types.ts
-  ppFoodPrompts.ts
-  pipeline.ts
-  index.ts
-
-docs/
-  PROMPT_RUNTIME_FULL.md
-  CATEGORY_PROFILES.md
-  NODE_INTEGRATION_GUIDE.md
-  QC_RETRY.md
-  SECURITY_AND_FACTS.md
-
-examples/
-  request-a.json
-  request-b.json
-
-tests/
-  promptCompiler.test.ts
-```
-
-## 当前视觉母版原则
-
-PP Food 当前上限 KV 不是“统一皮肤”，而是统一质量结构：
-
-```text
-强产品
-+ 强标题
-+ 产品感官属性驱动的字体材质
-+ 一个明确的大创意
-+ 前中后景共构
-+ 丰富但受控的信息系统
-+ 品类专属氛围
-+ 高商业完成度
-```
-
-## 明确禁止
-
-- 产品漂移
-- 包装/器皿重设计
-- 旧任务品牌/文案泄漏
-- `面包 -> 巨型烤炉洞穴` 这类字面联想
-- `巨大留白 + 小字 + 产品摆件化` 的安全编辑海报塌缩
-- `照片 + 贴字`
-- 所有品类统一黑金/木牌/玻璃/牛皮纸模板
-- 为了填版式而编造价格、地址、电话、奖项等硬事实
-
-## 版本冻结提醒
-
-开发公司可以按本仓库接入 **当前验证基线**，但正式上线前应以业主最终确认的 Runtime 版本为准。跨品类稳定性验证完成后，仓库会再标注 `FROZEN_FOR_PRODUCTION`。
+API Key 只允许存在后端 Secrets/环境变量。禁止提交 `.env`、真实 Key、客户 Job 资产、私有 S01/S02 或 Golden 图片。
