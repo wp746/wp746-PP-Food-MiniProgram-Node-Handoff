@@ -3,7 +3,7 @@ name: Runtime RC Sync
 on:
   push:
     branches:
-      - runtime-1.0.0-rc.1-sync
+      - 'runtime-1.0.0-rc.*-sync'
   pull_request:
     branches:
       - main
