@@ -5,9 +5,9 @@
 本交接版本必须与下列 Python Runtime 行为一致：
 
 ```text
-Node Handoff:   handoff-1.0.0-rc.1
-Runtime:        1.0.0-rc.1
-Runtime Commit: 339bca03b864f531a59bd6f0105ef4ddccb94684
+Node Handoff:   handoff-1.0.0-rc.2
+Runtime:        1.0.0-rc.2
+Runtime Commit: 0930fe08fd2188196478d658739f4e128527501d
 ```
 
 开发公司不要从旧 Skill、旧对话或旧 Prompt 重新推导业务逻辑。本仓库 `src/` 与上述 Runtime commit 是交付真源。
@@ -21,7 +21,19 @@ Runtime Commit: 339bca03b864f531a59bd6f0105ef4ddccb94684
 
 B 文案必须经过 Copy Firewall；默认文案授权只允许软性、非事实型 campaign copy。
 
-## 3. 两个内部执行策略
+## 3. Product Truth 规范化 — RC2 强制
+
+Vision Provider 返回的是观察证据，不允许直接拿原始字符串决定 Category/Golden 路由。
+
+当前生产边界至少执行：
+
+- `Pack` / `PACK` 等 casing → 统一 `PACK`
+- `Food` / `FOOD` 等 casing → 统一 `FOOD`
+- 当前用户产品名包含 `罐头 / 蜜橘 / 桔子` 且规范化结果为 `PACK` → `CANNED_FRUIT_RETAIL`
+
+这条规则来自真实 S02 live acceptance：RC1 因 `Pack != PACK` 导致桔子罐头误入 generic category，并错取非 S02 Golden 原则。开发公司不得删除、旁路或重新自由解释该规范化层。
+
+## 4. 两个内部执行策略
 
 ### PRODUCTION_FAST
 
@@ -30,6 +42,7 @@ B 文案必须经过 Copy Firewall；默认文案授权只允许软性、非事�
 ```text
 B Request
 → Require current Stage A PASS
+→ normalize Product Truth
 → Copy Firewall
 → Category Translation
 → Primary Direction
@@ -47,6 +60,7 @@ B Request
 ```text
 B Request
 → Require current Stage A PASS
+→ normalize Product Truth
 → Primary + Challenger
 → Independent Eval x2
 → Pairwise: Stage A control + Primary + Challenger
@@ -55,7 +69,7 @@ B Request
 
 Pairwise 不得混入 Source 或 Golden 图作为候选。
 
-## 4. 生产 Hard Gate
+## 5. 生产 Hard Gate
 
 创意 Retry 只针对：
 
@@ -71,7 +85,7 @@ Pairwise 不得混入 Source 或 Golden 图作为候选。
 
 Evaluator confidence `<0.65` → `NEEDS_SECOND_EVALUATION`，只重评，不重新生成图片。
 
-## 5. 不得静默改变的产品方法
+## 6. 不得静默改变的产品方法
 
 1. 当前 source image 是产品视觉真值最高权限。
 2. A 只升级摄影，不改产品，不加海报文案。
@@ -85,8 +99,9 @@ Evaluator confidence `<0.65` → `NEEDS_SECOND_EVALUATION`，只重评，不重�
 10. Provider/Evaluator/Runtime 故障不是创意失败，不消耗创意 Retry。
 11. Retry 必须定向修复且 Pass-Freeze。
 12. 不允许为了“更高级”而牺牲产品真实性。
+13. Provider 原始分类字符串必须先规范化再参与路由。
 
-## 6. Image Provider
+## 7. Image Provider
 
 Image Provider 必须执行 reference image / image edit，并真正携带当前 Job 的参考图。对 B 来说参考图是当前 Stage A PASS。
 
@@ -105,7 +120,7 @@ Image Provider 必须执行 reference image / image edit，并真正携带当前
 
 Reference 未实际绑定时应失败关闭，不允许静默改成纯 text-to-image。
 
-## 7. 中文文字
+## 8. 中文文字
 
 保留两种策略：
 
@@ -114,13 +129,13 @@ Reference 未实际绑定时应失败关闭，不允许静默改成纯 text-to-i
 
 本 RC 同步的是 Runtime 策略与 Prompt 契约；如果开发公司实现 Hybrid 合成层，必须单独记录实现与验收结果，不能声称仓库当前已经实现了完整合成器。
 
-## 8. 安全
+## 9. 安全
 
 API Key 只能存在后端 Secret/环境变量。禁止提交 `.env`、真实 Key、私有 S01/S02、客户 Job 原图或生成物。
 
 任何已经出现在聊天、文件或代码历史中的旧 Key 都应视为泄露，不得复用。
 
-## 9. 开发公司必须返回
+## 10. 开发公司必须返回
 
 初次接入后至少返回：
 
@@ -134,4 +149,4 @@ API Key 只能存在后端 Secret/环境变量。禁止提交 `.env`、真实 Ke
 8. 是否启用 Hybrid Composite
 9. 对本仓库的任何修改 diff
 
-未经列明，不得静默修改 Prompt、QC、重试上限或图位顺序。
+未经列明，不得静默修改 Prompt、QC、重试上限、规范化规则或图位顺序。
