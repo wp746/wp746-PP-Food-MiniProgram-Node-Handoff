@@ -1,6 +1,6 @@
-# Developer Acceptance Checklist — handoff-1.0.0-rc.1
+# Developer Acceptance Checklist — handoff-1.0.0-rc.2
 
-Runtime source: `PP-Food-Runtime-001 1.0.0-rc.1 @ 339bca03b864f531a59bd6f0105ef4ddccb94684`.
+Runtime source: `PP-Food-Runtime-001 1.0.0-rc.2 @ 0930fe08fd2188196478d658739f4e128527501d`.
 
 开发公司完成接入后，请逐项确认。
 
@@ -12,6 +12,14 @@ Runtime source: `PP-Food-Runtime-001 1.0.0-rc.1 @ 339bca03b864f531a59bd6f0105ef4
 - [ ] 业务 Controller 不另写一套 Prompt
 - [ ] `src/ppFoodPrompts.ts` 与 `src/pipeline.ts` 是 Node 行为真源
 - [ ] 线上显式设置 `runtimeMode=PRODUCTION_FAST`
+
+## Product Truth Normalization — RC2
+
+- [ ] Vision raw `packOrFood="Pack"` 会规范化为 `PACK`
+- [ ] `Food` / `FOOD` casing 不影响内部 FOOD 信号
+- [ ] `PACK + 桔子罐头/蜜橘/罐头` 路由到 `CANNED_FRUIT_RETAIL`
+- [ ] Controller 不直接拿 Provider 原始 category/pack 字符串选模板或 Golden
+- [ ] 外部传入已有 ProductTruth 时，Stage B 仍执行同一 normalization
 
 ## Product Fidelity
 
@@ -39,7 +47,7 @@ Runtime source: `PP-Food-Runtime-001 1.0.0-rc.1 @ 339bca03b864f531a59bd6f0105ef4
 - [ ] Pairwise 只接收 3 张图：Stage A control / Primary / Challenger
 - [ ] Stage A 不能被选为 winner
 - [ ] Primary / Challenger 至少两个结构维度不同
-- [ ] Golden floors 与 Runtime RC1 一致
+- [ ] Golden floors 与 Runtime RC2 一致
 - [ ] 有 First Read、Golden Vector、Anti-Pattern 检查
 - [ ] 不合格时允许进入 review / named retry planning，而不是把较好的一张强行判 PASS
 
@@ -56,6 +64,7 @@ Runtime source: `PP-Food-Runtime-001 1.0.0-rc.1 @ 339bca03b864f531a59bd6f0105ef4
 
 - [ ] 保存 runtime/handoff version
 - [ ] 保存 source / Stage A / prompt / output hash
+- [ ] 保存 normalized packOrFood / primaryCategory
 - [ ] 保存 provider/model/request id
 - [ ] 保存 generation latency、failure class、retry count、final decision
 - [ ] 能从一次 Job 还原实际执行的是 PRODUCTION_FAST 还是 VALIDATION
@@ -78,4 +87,4 @@ Runtime source: `PP-Food-Runtime-001 1.0.0-rc.1 @ 339bca03b864f531a59bd6f0105ef4
 - [ ] 一条完整脱敏 Job 日志
 - [ ] A 输出图
 - [ ] B 最终输出图；Validation 时另附 Primary / Challenger
-- [ ] 对 Prompt / QC / Retry / Provider Adapter 的任何本地修改 diff
+- [ ] 对 Prompt / QC / Retry / Normalization / Provider Adapter 的任何本地修改 diff
