@@ -1,3 +1,4 @@
+import { StructuredOutputProtocolError } from "./types";
 import type {
   ArtDirection,
   CategoryVisualTranslation,
@@ -37,8 +38,33 @@ const HARD_PRODUCTION_FAILURES = new Set([
   "COMMERCIAL_FINISH_WEAK",
 ]);
 
+const PRODUCTION_EVALUATOR_PROTOCOL_RETRY = String.raw`
+INSTANCE_RETRY: The previous evaluator response was rejected as a structured-output protocol failure.
+Return a DATA INSTANCE compatible with EvaluationResult. Do not return, quote, summarize, or embed a JSON Schema.
+Do not output $defs, properties, required, title, schema metadata, or explanatory prose.
+Re-evaluate the exact same three images and return one JSON object only.
+`;
+
 function unique(values: string[]): string[] {
   return [...new Set(values)];
+}
+
+function protocolReason(error: unknown): string {
+  if (error instanceof StructuredOutputProtocolError) return error.reason;
+  if (typeof error === "object" && error !== null && "reason" in error) {
+    return String((error as { reason?: unknown }).reason ?? "UNKNOWN");
+  }
+  return "UNKNOWN";
+}
+
+function isStructuredOutputProtocolError(error: unknown): boolean {
+  if (error instanceof StructuredOutputProtocolError) return true;
+  return Boolean(
+    typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: unknown }).code === "STRUCTURED_OUTPUT_PROTOCOL_FAILURE",
+  );
 }
 
 export function normalizeProductTruth(
@@ -182,7 +208,7 @@ export class PPFoodPipeline {
     const qc = await this.vision.analyze<EvaluationResult>({
       system: STAGE_A_QC_SYSTEM,
       images: [job.sourceImage, rendered.image],
-      input: { productTruth, promptVersion: "handoff-1.0.0-rc.2" },
+      input: { productTruth, promptVersion: "handoff-1.0.0-rc.3" },
       responseFormat: "json",
     });
 
@@ -250,6 +276,77 @@ export class PPFoodPipeline {
     });
   }
 
+  private async evaluateProductionCandidate(input: {
+    job: PPFoodJobInput;
+    truth: ProductTruth;
+    copyAllowlist: unknown;
+    translation: CategoryVisualTranslation;
+    direction: ArtDirection;
+    candidateId: string;
+    candidateImage: Buffer | string;
+    targetedRepair?: string;
+  }): Promise<{ evaluation: EvaluationResult; gate: ProductionGateResult }> {
+    const images = [input.job.sourceImage, input.job.stageAPassImage!, input.candidateImage];
+    const requestInput = {
+      candidateId: input.candidateId,
+      productTruth: input.truth,
+      userFacts: input.job,
+      copyAllowlist: input.copyAllowlist,
+      translation: input.translation,
+      direction: input.direction,
+      targetedRepair: input.targetedRepair,
+    };
+
+    let evaluation: EvaluationResult;
+    try {
+      evaluation = await this.vision.analyze<EvaluationResult>({
+        system: PRODUCTION_EVALUATOR_SYSTEM,
+        images,
+        input: requestInput,
+        responseFormat: "json",
+      });
+    } catch (firstError) {
+      if (!isStructuredOutputProtocolError(firstError)) throw firstError;
+      try {
+        evaluation = await this.vision.analyze<EvaluationResult>({
+          system: `${PRODUCTION_EVALUATOR_SYSTEM}\n\n${PRODUCTION_EVALUATOR_PROTOCOL_RETRY}\nPrevious protocol failure reason: ${protocolReason(firstError)}`,
+          images,
+          input: { ...requestInput, protocolRetry: true },
+          responseFormat: "json",
+        });
+      } catch (secondError) {
+        if (!isStructuredOutputProtocolError(secondError)) throw secondError;
+        const evidence = [
+          `Production evaluator structured-output protocol failed twice: ${protocolReason(firstError)} -> ${protocolReason(secondError)}.`,
+        ];
+        const protocolEvaluation: EvaluationResult = {
+          decision: "NEEDS_HUMAN_REVIEW",
+          failures: [
+            {
+              code: "EVALUATOR_PROTOCOL_FAILURE",
+              severity: "CRITICAL",
+              evidence,
+            },
+          ],
+          confidence: 0,
+        };
+        return {
+          evaluation: protocolEvaluation,
+          gate: {
+            decision: "NEEDS_HUMAN_REVIEW",
+            failureCodes: ["EVALUATOR_PROTOCOL_FAILURE"],
+            retryEligible: false,
+            failureClass: "EVALUATOR_PROTOCOL",
+            evidence,
+            repairInstruction: "Review the existing generated image or re-run evaluator only; do not regenerate the image.",
+          },
+        };
+      }
+    }
+
+    return { evaluation, gate: decideProductionGate(evaluation) };
+  }
+
   private async runProductionFast(input: {
     job: PPFoodJobInput;
     truth: ProductTruth;
@@ -267,21 +364,17 @@ export class PPFoodPipeline {
       aspectRatio: "9:16",
     });
 
-    const primaryEvaluation = await this.vision.analyze<EvaluationResult>({
-      system: PRODUCTION_EVALUATOR_SYSTEM,
-      images: [job.sourceImage, stageA, primaryImage.image],
-      input: {
-        candidateId: "primary",
-        productTruth: truth,
-        userFacts: job,
-        copyAllowlist,
-        translation,
-        direction: primaryDirection,
-      },
-      responseFormat: "json",
+    const primaryResult = await this.evaluateProductionCandidate({
+      job,
+      truth,
+      copyAllowlist,
+      translation,
+      direction: primaryDirection,
+      candidateId: "primary",
+      candidateImage: primaryImage.image,
     });
-
-    let productionGate = decideProductionGate(primaryEvaluation);
+    const primaryEvaluation = primaryResult.evaluation;
+    let productionGate = primaryResult.gate;
     const evaluations: Record<string, EvaluationResult> = { primary: primaryEvaluation };
     let retry:
       | {
@@ -301,21 +394,18 @@ export class PPFoodPipeline {
         prompt: retryPrompt,
         aspectRatio: "9:16",
       });
-      const retryEvaluation = await this.vision.analyze<EvaluationResult>({
-        system: PRODUCTION_EVALUATOR_SYSTEM,
-        images: [job.sourceImage, stageA, retryImage.image],
-        input: {
-          candidateId: "retry-1",
-          productTruth: truth,
-          userFacts: job,
-          copyAllowlist,
-          translation,
-          direction: primaryDirection,
-          targetedRepair: productionGate.repairInstruction,
-        },
-        responseFormat: "json",
+      const retryResult = await this.evaluateProductionCandidate({
+        job,
+        truth,
+        copyAllowlist,
+        translation,
+        direction: primaryDirection,
+        candidateId: "retry-1",
+        candidateImage: retryImage.image,
+        targetedRepair: productionGate.repairInstruction,
       });
-      productionGate = decideProductionGate(retryEvaluation);
+      const retryEvaluation = retryResult.evaluation;
+      productionGate = retryResult.gate;
       evaluations["retry-1"] = retryEvaluation;
       retry = {
         direction: primaryDirection,
