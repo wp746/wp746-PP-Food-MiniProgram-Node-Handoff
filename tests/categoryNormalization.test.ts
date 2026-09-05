@@ -22,8 +22,7 @@ const cannedFruitTruth: ProductTruth = {
 describe("RC2 product-truth normalization", () => {
   it("normalizes title-case Pack and routes canned fruit to the canonical retail category", () => {
     const normalized = normalizeProductTruth(cannedFruitTruth, {
-      productName: "桔子罐头",
-      brand: "林家铺子"
+      productName: "桔子罐头"
     });
 
     expect(normalized.packOrFood).toBe("PACK");
