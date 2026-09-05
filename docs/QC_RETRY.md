@@ -1,4 +1,4 @@
-# QC & Retry — Runtime 1.0.0-rc.1 parity
+# QC & Retry — Runtime 1.0.0-rc.2 parity
 
 ## 1. A QC
 
@@ -6,7 +6,11 @@
 
 A 未 PASS，不得进入 B。
 
-## 2. PRODUCTION_FAST Hard Gate
+## 2. Category / Golden Routing Integrity
+
+Provider observation 必须先经过确定性规范化。`Pack` / `PACK` 等 casing 不得改变最终 Category/Golden 路由；包装桔子罐头应进入 `CANNED_FRUIT_RETAIL`。如果 requested Golden 未被检索到，应记录诊断证据，不应让 review/report 过程崩溃。
+
+## 3. PRODUCTION_FAST Hard Gate
 
 Production Fast 的目标是判断“是否可交付”，而不是为追求更高 Golden 分无限重生图。
 
@@ -42,7 +46,7 @@ retryEligible = false
 
 只重评，不重生图。
 
-## 3. PRODUCTION_FAST Retry Budget
+## 4. PRODUCTION_FAST Retry Budget
 
 ```text
 initial B renders = 1
@@ -52,7 +56,7 @@ provider/evaluator/runtime retry cost = 0 creative retries
 
 Retry 必须从同一个 current-job Stage A PASS 开始，使用明确的 repair instruction，并冻结通过维度。
 
-## 4. VALIDATION Golden Vector
+## 5. VALIDATION Golden Vector
 
 0–10 当前门槛与 Python Runtime 一致：
 
@@ -69,7 +73,7 @@ commercial_finish            >= 9.2
 
 产品真值、文案真值、机械有效性、Reference Binding 仍是比分数更高的 hard gate。
 
-## 5. First Read
+## 6. First Read
 
 目标：
 
@@ -82,7 +86,7 @@ commercial_finish            >= 9.2
 场景成为第一眼 → `SCENE_DOMINATES_PRODUCT`。
 产品明显失去第一主角地位 → `HERO_WEAK`。
 
-## 6. Validation Pairwise
+## 7. Validation Pairwise
 
 Pairwise 接收且只接收：
 
@@ -94,7 +98,7 @@ image 3 = Challenger
 
 Primary 胜 Challenger 不代表自动 PASS；Validation 仍需独立 Candidate Evaluation / Golden-relative quality 判断。
 
-## 7. Anti-Pattern
+## 8. Anti-Pattern
 
 Validation 重点检查：
 
@@ -109,6 +113,6 @@ INFORMATION_STARVATION
 INFORMATION_OVERLOAD
 ```
 
-## 8. Pass Freeze
+## 9. Pass Freeze
 
 所有 Retry 都必须冻结已经通过的产品真值和视觉维度，只改失败项及其必要依赖。禁止无目标“再生成一张试试”。
