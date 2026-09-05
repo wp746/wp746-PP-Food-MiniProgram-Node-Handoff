@@ -7,7 +7,7 @@ Node Handoff:    handoff-1.0.0
 Runtime Version: 1.0.0
 Runtime Commit:  5a2d6c9757dc0f55c75128587fa0c8cd3dbe112c
 SYNC TARGET:     MATCHED
-FINAL STATUS:    pending this final Node commit's npm test + npm run typecheck
+FINAL STATUS:    VERIFIED
 ```
 
 ## Production V1 reason
@@ -64,21 +64,36 @@ commercial_finish            9.2
 
 ## Python Runtime V1 CI Evidence
 
-Final Runtime production-freeze commit:
+Runtime production-freeze source commit:
 
 ```text
 5a2d6c9757dc0f55c75128587fa0c8cd3dbe112c
 85 passed
 3 skipped
 0 failed
-workflow 33959171648 = SUCCESS
+push workflow 33959171648 = SUCCESS
+PR workflow   33959521703 = SUCCESS
 ```
 
 The 3 skipped tests are opt-in real-provider/private live tests; they are not silently treated as PASS.
 
-## Node TDD Evidence
+Runtime was merged to `main` by PR #1. The merge commit tree is the same production-freeze tree validated above.
 
-The evaluator protocol contract was introduced test-first during RC3. RED state: protocol tests failed before `StructuredOutputProtocolError` and evaluator-only retry existed. After implementation, RC3 passed 10/10 Node tests plus TypeScript typecheck. The final handoff-1.0.0 metadata/mapping commit must also pass both steps before delivery is marked synchronized.
+## Node V1 CI Evidence
+
+The evaluator protocol contract was introduced test-first during RC3. RED state: protocol tests failed before `StructuredOutputProtocolError` and evaluator-only retry existed. After implementation, the frozen `handoff-1.0.0` commit passed:
+
+```text
+558b406fb2c87b44d4ef639f2787631edd6edb56
+4 test files passed
+10 / 10 tests passed
+npm run typecheck = PASS
+npm audit = 0 vulnerabilities
+push workflow 33959449090 = SUCCESS
+PR workflow   33959532228 = SUCCESS
+```
+
+The V1 handoff was merged to `main` by PR #1. This status record is a post-merge documentation closure only; it does not alter runtime/pipeline behavior.
 
 ## Live Acceptance Closure
 
