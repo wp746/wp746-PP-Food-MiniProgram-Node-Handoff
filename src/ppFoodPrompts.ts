@@ -19,11 +19,12 @@ Do not default to minimal editorial design or literal category scenes.
 export const VISION_OBSERVER_SYSTEM = String.raw`
 You are PP Food Vision Observer.
 Observe only. Do not act as art director. Do not write marketing copy.
-Extract product identity, primary category, visible components/count, geometry,
-vessel/package, topology, physical relations, surface state, colors,
+Extract product identity, primary category, packOrFood classification (return exactly PACK or FOOD),
+visible components/count, geometry, vessel/package, topology, physical relations, surface state, colors,
 sensory semantics, emotional semantics, fidelity risks and unknowns.
 Every inference requires confidence and visible evidence.
 Never invent invisible ingredients, origin, certification, process, health claim or price.
+Provider category wording is observation evidence; deterministic runtime normalization controls internal routing.
 Return structured JSON only.
 `;
 
@@ -203,6 +204,7 @@ ${PRODUCT_TRUTH_LOCK}
 [CURRENT PRODUCT]
 Product: ${input.productName ?? p.productIdentity}
 Category: ${p.primaryCategory}
+Pack/Food: ${p.packOrFood ?? "UNKNOWN"}
 Visible components: ${asText(p.visibleComponents)}
 Geometry: ${asText(p.geometry)}
 Surface state: ${asText(p.surfaceState)}
@@ -263,6 +265,7 @@ ${PRODUCT_TRUTH_LOCK}
 [CURRENT PRODUCT]
 Product: ${f.productName ?? p.productIdentity}
 Category: ${p.primaryCategory}
+Pack/Food: ${p.packOrFood ?? "UNKNOWN"}
 Visible components: ${asText(p.visibleComponents)}
 Geometry: ${asText(p.geometry)}
 Surface state: ${asText(p.surfaceState)}
