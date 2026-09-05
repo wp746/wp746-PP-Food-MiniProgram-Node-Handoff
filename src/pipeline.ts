@@ -41,6 +41,29 @@ function unique(values: string[]): string[] {
   return [...new Set(values)];
 }
 
+export function normalizeProductTruth(
+  truth: ProductTruth,
+  facts: { productName?: string } = {},
+): ProductTruth {
+  const rawPackOrFood = truth.packOrFood?.trim().toUpperCase();
+  const packOrFood =
+    rawPackOrFood === "PACK" || rawPackOrFood === "FOOD"
+      ? rawPackOrFood
+      : truth.packOrFood;
+  let primaryCategory = truth.primaryCategory;
+  const productName = facts.productName ?? "";
+
+  if (packOrFood === "PACK" && /(罐头|蜜橘|桔子)/.test(productName)) {
+    primaryCategory = "CANNED_FRUIT_RETAIL";
+  }
+
+  return {
+    ...truth,
+    primaryCategory,
+    packOrFood,
+  };
+}
+
 export function decideProductionGate(evaluation: EvaluationResult): ProductionGateResult {
   const confidence = evaluation.confidence ?? 0;
   const evidence = evaluation.failures.flatMap((failure) => failure.evidence ?? []);
@@ -131,7 +154,7 @@ export class PPFoodPipeline {
     image: Awaited<ReturnType<ImageProvider["edit"]>>;
     qc: EvaluationResult;
   }> {
-    const productTruth = await this.analyzeSource(job.sourceImage);
+    const productTruth = normalizeProductTruth(await this.analyzeSource(job.sourceImage), job);
 
     const artDirection = await this.text.complete<{
       backgroundDirection: string;
@@ -159,7 +182,7 @@ export class PPFoodPipeline {
     const qc = await this.vision.analyze<EvaluationResult>({
       system: STAGE_A_QC_SYSTEM,
       images: [job.sourceImage, rendered.image],
-      input: { productTruth, promptVersion: "handoff-1.0.0-rc.1" },
+      input: { productTruth, promptVersion: "handoff-1.0.0-rc.2" },
       responseFormat: "json",
     });
 
@@ -171,7 +194,10 @@ export class PPFoodPipeline {
       throw new Error("Stage B requires the current job Stage A PASS image.");
     }
 
-    const truth = productTruth ?? (await this.analyzeSource(job.sourceImage));
+    const truth = normalizeProductTruth(
+      productTruth ?? (await this.analyzeSource(job.sourceImage)),
+      job,
+    );
     const copyAllowlist = await this.text.complete({
       system: COPY_FIREWALL_SYSTEM,
       input: { productTruth: truth, userFacts: job },
