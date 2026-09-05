@@ -3,9 +3,9 @@
 ## 1. 版本绑定
 
 ```text
-Node Handoff:   handoff-1.0.0-rc.3
-Runtime:        1.0.0-rc.3
-Runtime Commit: 9dd3aa4725efd008ec6382f9abbce81d146ee024
+Node Handoff:   handoff-1.0.0
+Runtime:        1.0.0
+Runtime Commit: 5a2d6c9757dc0f55c75128587fa0c8cd3dbe112c
 ```
 
 开发公司不要从旧 Skill、旧对话或旧 Prompt 重新推导业务逻辑。本仓库 `src/` 与上述 Runtime commit 是交付真源。
@@ -63,9 +63,9 @@ B Request
 
 Pairwise 不得把 Source 或 Golden 当候选，Stage A 不能成为 winner。
 
-## 5. RC3：Production Evaluator structured-output protocol
+## 5. V1 Production Evaluator structured-output protocol
 
-真实 S02 `PRODUCTION_FAST` 已经跑到 evaluator，但 SiliconFlow 曾返回 `RawEvaluation` JSON Schema 本身，而不是评审数据实例。RC3 将此类情况与创意失败完全分离。
+真实 S02 `PRODUCTION_FAST` 曾跑到 evaluator，但 SiliconFlow 返回 `RawEvaluation` JSON Schema 本身，而不是评审数据实例。Runtime 1.0.0 保留 RC3 已验证的协议保护，并将此类情况与创意失败完全分离。
 
 Provider / adapter 至少识别：
 
@@ -99,6 +99,8 @@ second protocol failure
 ```
 
 不得把 schema echo、JSON parse failure 或 model validation failure 转换成 B creative retry。
+
+真实 evaluator-only acceptance 已验证该协议链能返回正常 Production Gate。复用的历史 S02 候选本身返回 `HERO_WEAK`；这属于正常视觉交付门槛，不属于 evaluator protocol failure，也不得通过降低门槛伪造 PASS。
 
 ## 6. Production Hard Gate
 
