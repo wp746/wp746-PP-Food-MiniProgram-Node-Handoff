@@ -99,12 +99,17 @@ Preserve product DNA; B may creatively change camera, crop, scale, placement,
 overlap, foreground pressure and environmental light.
 Create exactly ONE product-derived Big Idea.
 Headline must be a visual asset with scale, material presence and spatial presence.
+Headline and subtitle/supporting-title must occupy distinct depth roles rather than one flat text plane.
+Spatial evidence may use perspective, foreshortening, layered thickness/relief, carrier depth,
+product/type overlap or occlusion, contact/cast shadow, shared scene lighting, or foreground/midground crossing.
+This does not require literal 3D extrusion in every category; restrained editorial typography may use layered planes,
+perspective, occlusion and light integration as long as the title visibly belongs to the scene.
 Typography material must derive from current product sensory semantics.
 Use true multi-depth co-composition, not title-zone/product-zone/footer-zone.
 Medium to medium-high information density is allowed when hierarchy is controlled.
 Reject SAFE_EDITORIAL_COLLAPSE, SCENE_DOMINATES_PRODUCT,
 CATEGORY_CLICHE_DEPENDENCE, GENERIC_PREMIUM_SKIN, PHOTO_PLUS_TEXT,
-TEMPLATE_REUSE, INFORMATION_STARVATION and INFORMATION_OVERLOAD.
+TITLE_SPATIALITY_WEAK, TEMPLATE_REUSE, INFORMATION_STARVATION and INFORMATION_OVERLOAD.
 Output ArtDirection JSON only.
 `;
 
@@ -113,7 +118,7 @@ You are PP Food Independent B Evaluator.
 You did not generate this design. Evaluate one rendered B candidate from visible pixels only.
 Images arrive as: source, current-job Stage A PASS, current B candidate.
 Evaluate in order: mechanical -> reference binding -> product truth -> copy truth -> first read
--> Golden vector -> anti-pattern -> commercial finish.
+-> Golden vector -> title spatiality -> anti-pattern -> commercial finish.
 First-read target: 1 product, 2 headline, 3 big idea/message.
 Golden vector fields and floors:
 product_hero_strength >= 9.2
@@ -124,6 +129,9 @@ compositional_depth_tension >= 8.8
 category_inevitability >= 9.0
 information_density_control >= 8.8
 commercial_finish >= 9.2
+Check TITLE_SPATIALITY_WEAK when headline/subtitle read as a flat 2D overlay that could be removed like a pasted text layer,
+with no visible perspective, depth separation, overlap/occlusion, material response, carrier depth or shared scene lighting.
+Literal thick 3D lettering is not mandatory if restrained spatial depth is visibly established.
 Check SAFE_EDITORIAL_COLLAPSE, SCENE_DOMINATES_PRODUCT,
 CATEGORY_CLICHE_DEPENDENCE, GENERIC_PREMIUM_SKIN, PHOTO_PLUS_TEXT,
 TEMPLATE_REUSE, INFORMATION_STARVATION, INFORMATION_OVERLOAD.
@@ -137,7 +145,11 @@ You receive exactly three images in order: source, current-job Stage A PASS, cur
 Judge visible pixels only. Return EvaluationResult-compatible JSON.
 Hard checks only: mechanical validity, Stage A reference binding, product identity/count/geometry/topology/
 package/vessel/physical relationships, authorized copy truth, product remains the unmistakable first hero,
-and whether the render is clearly commercially broken.
+title system has visible spatial integration, and whether the render is clearly commercially broken.
+Mark TITLE_SPATIALITY_WEAK when headline and subtitle/supporting-title read as flat 2D overlays with no credible
+perspective, depth separation, overlap/occlusion, carrier/material depth or shared scene lighting.
+This does not require literal 3D extrusion in every category; restrained layered planes, perspective, occlusion,
+contact/cast shadow and scene-light integration are valid spatial evidence.
 Set mechanicalPass, referenceBindingVerified, productTruthPass, copyTruthPass, productFirstHero and confidence.
 Soft issues such as PHOTO_PLUS_TEXT, CATEGORY_CLICHE_DEPENDENCE, GENERIC_PREMIUM_SKIN or GOLDEN_DISTANCE
 may be reported as advisory failures but must not by themselves block production delivery.
@@ -152,7 +164,7 @@ image 2 = Primary candidate;
 image 3 = Challenger candidate.
 Only image 2 or image 3 may win. Never select Stage A as winner.
 Choose by product hero strength first, then campaign refinement, product-led memorability,
-category inevitability, typography-product symbiosis and commercial finish.
+category inevitability, typography-product symbiosis, title spatiality, compositional tension and commercial finish.
 Return winnerId exactly "primary" or "challenger", visuallyDistinct, confidence and visible evidence.
 `;
 
@@ -162,6 +174,7 @@ Never randomly regenerate everything. Freeze passing dimensions.
 PRODUCT_IDENTITY_DRIFT -> FIDELITY_RETRY
 PRODUCT_NOT_FIRST_HERO -> HERO_RETRY
 HEADLINE_TOO_WEAK -> HEADLINE_PRESSURE_RETRY
+TITLE_SPATIALITY_WEAK -> TYPOGRAPHY_SYMBIOSIS_RETRY
 TYPOGRAPHY_DISCONNECTED -> TYPOGRAPHY_SYMBIOSIS_RETRY
 BIG_IDEA_WEAK -> BIG_IDEA_RETRY
 COMPOSITION_FLAT -> COMPOSITION_RETRY
@@ -169,6 +182,8 @@ CATEGORY_GENERIC -> CATEGORY_TRANSLATION_RETRY
 INFORMATION_STARVED / INFORMATION_OVERLOAD -> INFORMATION_RETRY
 COMMERCIAL_FINISH_WEAK -> COMMERCIAL_FINISH_RETRY
 GOLDEN_DISTANCE_TOO_HIGH -> GOLDEN_DISTANCE_RETRY
+For TITLE_SPATIALITY_WEAK preserve Stage A/product/copy and rebuild only title depth, perspective,
+overlap/occlusion, material response and shared scene lighting; never shrink or demote the product.
 Validation retry levels: targeted repair -> concept adjustment -> art-direction rebuild.
 Validation maximum creative cycles = 3. Production Fast maximum creative retry = 1.
 Provider/evaluator/runtime failures consume zero creative retries.
@@ -286,18 +301,30 @@ The product is visual hero #1.
 
 [HEADLINE]
 Exact headline: ${f.headline ?? f.productName ?? p.productIdentity}
+Exact subtitle/supporting-title: ${f.subtitle ?? ""}
 ${d.typographyDirection}
 The headline is visual hero #2.
 It must have strong visual mass, material presence, spatial presence and campaign memorability.
+Headline and subtitle/supporting-title must occupy distinct depth roles: different scale, plane, angle, carrier,
+overlap, occlusion or perspective behavior. They may not read as a flat 2D overlay pasted over a finished food photograph.
+
+[TITLE SPATIALITY HARD RULE]
+Treat typography as a scene-integrated visual object or spatial layer, not a late graphic overlay.
+Show visible perspective, depth separation, overlap/occlusion, material response and shared scene lighting.
+At least one clear depth mechanism must be visible: extrusion/bevel/relief, layered thickness, foreshortened perspective,
+embedded or suspended carrier, foreground-background crossing, controlled product/type occlusion, or contact/cast shadow.
+This does not require literal 3D extrusion in every category: restrained editorial categories may establish spatiality
+through perspective, layered planes, overlap/occlusion, contact/cast shadow and light integration.
 
 [PRODUCT–TYPOGRAPHY RELATIONSHIP]
 ${d.typographyProductRelationship}
 Product and headline must belong to the same light, perspective, material logic, atmosphere and campaign world.
+At least one product/type crossing or other visible depth relationship should make the spatial order legible without demoting the product.
 
 [COMPOSITION / DEPTH]
 ${d.compositionDirection}
 Do not create top-title / middle-product / bottom-footer.
-Build real spatial depth.
+Build real spatial depth: foreground accent -> product hero -> headline plane -> subtitle/support plane -> rear atmosphere.
 
 [CATEGORY-NATIVE ATMOSPHERE]
 ${d.categoryAtmosphere}
@@ -309,7 +336,7 @@ Preserve real product color.
 
 [LIGHTING]
 ${d.lightingDirection}
-Lighting reveals product first; mood second.
+Lighting reveals product first; mood second. Typography must respond to the same scene light when rendered natively.
 
 [AUTHORIZED COPY]
 HEADLINE: ${f.headline ?? f.productName ?? ""}
@@ -336,6 +363,10 @@ Campaign-grade commercial finish.
 No product redesign. No package/vessel mutation. No invented hard facts.
 No scene dominance. No giant literal noun-based environment.
 No safe minimal editorial collapse. No photo-plus-text.
+No flat 2D overlay headline or subtitle with no perspective/depth relationship.
+No headline/subtitle sharing one identical flat plane, scale logic and lighting with zero depth separation.
+No title system that could be removed like a pasted Photoshop text layer without changing the scene.
+TITLE_SPATIALITY_WEAK is a delivery failure: rebuild title depth before delivery.
 No generic black-gold luxury skin. No universal wooden-sign bakery cliché.
 No all-copy footer. No tiny weak headline. No headline dominance over product.
 No old-brand or old-layout leakage. No unrelated props.
