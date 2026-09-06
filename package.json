@@ -1,8 +1,8 @@
 {
   "name": "pp-food-miniprogram-node-handoff",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
-  "description": "Node/TypeScript handoff synchronized to PP Food Runtime 1.0.0",
+  "description": "Node/TypeScript handoff synchronized to PP Food Runtime 1.0.1",
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
