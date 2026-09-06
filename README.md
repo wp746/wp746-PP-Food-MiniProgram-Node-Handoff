@@ -3,18 +3,46 @@
 这是交给小程序开发公司的 **Node/TypeScript Runtime 交接仓库**。
 
 ```text
-Handoff Version: handoff-1.0.0
-Runtime Source:  PP-Food-Runtime-001 1.0.0
-Runtime Commit:  5a2d6c9757dc0f55c75128587fa0c8cd3dbe112c
+Handoff Version: handoff-1.0.1
+Runtime Source:  PP-Food-Runtime-001 1.0.1
+Runtime Commit:  7956c82ed3a4a197d29ad8ec1aca6777f23ccb82
 ```
 
 本仓库不是另一套 Skill，而是 Python Runtime 的生产行为镜像。开发公司应按本仓库的类型、状态机、Prompt Compiler、QC/Retry 契约实现，不得重新解释方法论。
 
+## 1.0.1：B 标题空间化硬规则
+
+真实中文热菜 KV 测试暴露了一个生产问题：产品主视觉可以合格，但主标题/副标题可能退化成后贴的平面文字，缺少透视、层次、遮挡和场景光影关系。Runtime 1.0.1 将这一问题正式固化为生产规则。
+
+固定行为：
+
+```text
+Product Hero = visual hero #1
+Headline     = visual hero #2
+Headline + subtitle/supporting-title
+→ distinct depth roles
+→ visible spatial relationship
+```
+
+空间证据可以是：透视/缩短透视、层叠厚度或浮雕、前中后景穿插、产品与文字遮挡、承载物深度、接触/投射阴影、共享场景光照等。
+
+**不要求所有品类都使用夸张厚重 3D 字。** Editorial/克制品类可以通过透视、层叠平面、遮挡和光影整合建立空间感。目标是“文字属于场景”，不是统一套一种 3D 风格。
+
+若主副标题像可直接删除的 Photoshop 平面贴字，必须返回：
+
+```text
+TITLE_SPATIALITY_WEAK
+→ Production Hard Gate
+→ targeted creative retry（最多沿用 Production Fast 的 1 次上限）
+→ 只修标题深度/透视/遮挡/材质/光影
+→ 不缩小产品，不改变 Product DNA，不改授权文案
+```
+
+详细规则：`docs/B_KV_TITLE_SPATIAL_RULES.md`。
+
 ## V1：Production Evaluator 协议保护
 
-真实 S02 `PRODUCTION_FAST` 曾跑到 Production Evaluator，但 SiliconFlow 返回 `RawEvaluation` 的 JSON Schema 本身，而不是评审数据实例。V1 保留 RC3 已验证的 structured-output protocol protection。
-
-Node 交接行为必须与 Python Runtime 1.0.0 一致：
+真实 S02 `PRODUCTION_FAST` 曾跑到 Production Evaluator，但 SiliconFlow 返回 `RawEvaluation` 的 JSON Schema 本身，而不是评审数据实例。该 structured-output protocol protection 继续保持：
 
 ```text
 Production evaluator
@@ -30,13 +58,11 @@ Production evaluator
    → retryEligible = false
 ```
 
-`INVALID_JSON`、`SCHEMA_ECHO`、`MODEL_VALIDATION` 都属于 structured-output protocol failure。Provider adapter 应把这些错误归一为 `STRUCTURED_OUTPUT_PROTOCOL_FAILURE`，而不是当成创意失败。
+`INVALID_JSON`、`SCHEMA_ECHO`、`MODEL_VALIDATION` 都属于 structured-output protocol failure，不得转换成创意重生图。
 
-真实 evaluator-only acceptance 已确认：SiliconFlow 不再因 schema echo 路径直接导致 Pydantic 崩溃，而能返回正常 Production Gate 结果。该验收复用了历史 S02 候选；该旧候选本身被判 `HERO_WEAK`，这属于合法交付硬门槛，不代表 evaluator protocol 失败，也不会为了测试变绿而降低 QC。
+## Product Truth normalization
 
-## V1：Product Truth normalization
-
-Vision Provider 输出是观察证据，不是内部 routing key。`Pack / PACK` 必须先统一为 `PACK`；当前任务为包装桔子/蜜橘/罐头时，内部类别必须进入 `CANNED_FRUIT_RETAIL`。不得删除这层确定性规范化。
+Vision Provider 输出是观察证据，不是内部 routing key。`Pack / PACK` 必须先统一为 `PACK`；包装桔子/蜜橘/罐头任务内部类别必须进入 `CANNED_FRUIT_RETAIL`。
 
 ## 用户层 A / B
 
@@ -59,9 +85,7 @@ Source
 → PASS
 ```
 
-只有交付级硬错误允许最多 1 次 targeted creative retry。正常 PASS 不生成 Challenger、不跑 Pairwise。
-
-Provider / Evaluator / Runtime 故障不消耗 creative retry。Evaluator protocol failure 只允许重跑 evaluator，绝不能因此重生图。
+正常 PASS 不生成 Challenger、不跑 Pairwise。交付级 Hard Failure 最多允许 1 次 targeted creative retry。Provider / Evaluator / Runtime 故障不消耗 creative retry。
 
 ### VALIDATION — 内部质量研发
 
@@ -71,7 +95,7 @@ Primary + Challenger
 → Pairwise: Stage A control + Primary + Challenger
 ```
 
-Stage A 只作为 control，不能成为 winner。Validation 的 Golden floors 与 Python Runtime 保持一致。
+Stage A 只作为 control，不能成为 winner。
 
 ## Production Hard Failure Set
 
@@ -81,6 +105,7 @@ COPY_TRUTH_FAILURE
 MECHANICAL_FAILURE
 REFERENCE_BINDING_FAILURE
 HERO_WEAK
+TITLE_SPATIALITY_WEAK
 SCENE_DOMINATES_PRODUCT
 COMMERCIAL_FINISH_WEAK
 ```
@@ -90,13 +115,14 @@ COMMERCIAL_FINISH_WEAK
 ## 开发公司阅读顺序
 
 1. `HANDOFF.md`
-2. `docs/NODE_INTEGRATION_GUIDE.md`
-3. `docs/PROMPT_RUNTIME_FULL.md`
-4. `docs/QC_RETRY.md`
-5. `docs/SECURITY_AND_FACTS.md`
-6. `src/types.ts`
-7. `src/ppFoodPrompts.ts`
-8. `src/pipeline.ts`
+2. `docs/B_KV_TITLE_SPATIAL_RULES.md`
+3. `docs/NODE_INTEGRATION_GUIDE.md`
+4. `docs/PROMPT_RUNTIME_FULL.md`
+5. `docs/QC_RETRY.md`
+6. `docs/SECURITY_AND_FACTS.md`
+7. `src/types.ts`
+8. `src/ppFoodPrompts.ts`
+9. `src/pipeline.ts`
 
 ## CI 门槛
 
