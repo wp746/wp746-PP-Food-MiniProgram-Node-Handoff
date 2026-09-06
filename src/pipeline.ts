@@ -34,6 +34,7 @@ const HARD_PRODUCTION_FAILURES = new Set([
   "MECHANICAL_FAILURE",
   "REFERENCE_BINDING_FAILURE",
   "HERO_WEAK",
+  "TITLE_SPATIALITY_WEAK",
   "SCENE_DOMINATES_PRODUCT",
   "COMMERCIAL_FINISH_WEAK",
 ]);
@@ -128,6 +129,9 @@ export function decideProductionGate(evaluation: EvaluationResult): ProductionGa
 
   const failureCodes = unique(failures);
   if (failureCodes.length > 0) {
+    const titleSpatialRepair = failureCodes.includes("TITLE_SPATIALITY_WEAK")
+      ? " For TITLE_SPATIALITY_WEAK, rebuild only the title system: add visible perspective/depth separation, product/type overlap or occlusion, material response and shared scene lighting; keep headline and subtitle/supporting-title on distinct depth roles without shrinking or demoting the product."
+      : "";
     return {
       decision: "RETRY",
       failureCodes,
@@ -136,7 +140,8 @@ export function decideProductionGate(evaluation: EvaluationResult): ProductionGa
       evidence,
       repairInstruction:
         `Repair only these delivery-blocking failures: ${failureCodes.join(", ")}. ` +
-        "Preserve current Stage A reference, product truth, authorized copy and all passing dimensions.",
+        "Preserve current Stage A reference, product truth, authorized copy and all passing dimensions." +
+        titleSpatialRepair,
     };
   }
 
@@ -208,7 +213,7 @@ export class PPFoodPipeline {
     const qc = await this.vision.analyze<EvaluationResult>({
       system: STAGE_A_QC_SYSTEM,
       images: [job.sourceImage, rendered.image],
-      input: { productTruth, promptVersion: "handoff-1.0.0-rc.3" },
+      input: { productTruth, promptVersion: "handoff-1.0.1" },
       responseFormat: "json",
     });
 
@@ -295,6 +300,7 @@ export class PPFoodPipeline {
       translation: input.translation,
       direction: input.direction,
       targetedRepair: input.targetedRepair,
+      titleSpatialityRequired: true,
     };
 
     let evaluation: EvaluationResult;
@@ -483,6 +489,7 @@ export class PPFoodPipeline {
           copyAllowlist,
           translation,
           direction: primaryDirection,
+          titleSpatialityRequired: true,
         },
         responseFormat: "json",
       }),
@@ -496,6 +503,7 @@ export class PPFoodPipeline {
           copyAllowlist,
           translation,
           direction: challengerDirection,
+          titleSpatialityRequired: true,
         },
         responseFormat: "json",
       }),
